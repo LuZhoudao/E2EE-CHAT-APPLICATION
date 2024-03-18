@@ -1,5 +1,5 @@
 authorityKeyIdentifier=keyid,issuer
 basicConstraints=CA:FALSE
-keyUsage=digitalSignature, keyEncipherment
+keyUsage=digitalSignature
 extendedKeyUsage=serverAuth
 subjectAltName=DNS:group-10.comp3334.xavier2dc.fr
