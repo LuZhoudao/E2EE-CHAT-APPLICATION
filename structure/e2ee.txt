@@ -1,0 +1,49 @@
+1.ECDH Key exchange protocol:
+(Server CANNOT decrypt chat messages)
+P-384 curve
+
+
+
+
+2.Keys
+
+Pair of 256-bit AES-GCM encryption Keys
+Pair of 256-bit MAC keys 
+HKDF-SHA256 ->  deriving a bunch of random data out of a seed
+seed -> shared secret
+
+2 keys: 
+Key1: user1 -> user2
+Key2: user2 -> user1
+(For sending and receiving message, 2 keys are different)
+
+
+WebCrypto API(no need to import anything, it's given by browser)
+
+
+Key exchange user1 -> user2 should be through the SERVER
+
+
+Salt -> using counter, unique
+
+"Info" -> current context
+
+3. Message encryption: AES in GCM mode
+96-bit IV, should be nonce(unique). We can use counter.
+IV sent together with ciphertext
+Current IV > previous IV
+HMAC-SHA256 -> protect IV
+Associated data on GCM mode -> reflect current context
+Authentication tag(on GCM mode) -> 128 bits long
+
+4. Key material -> HTML5 Local Storage of browser(we don't want to loose those key)
+
+
+5. Display the history of previous menage being EXCHANGED and NEW messages
+
+
+
+
+
+
+
