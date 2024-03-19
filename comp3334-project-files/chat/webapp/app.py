@@ -110,9 +110,21 @@ def login():
             session['username'] = username
             session['user_id'] = account[0]
             return redirect(url_for('index'))
+            # During login, verify the OTP from Google Authenticator, check the memorized secret verifier,
+            # and potentially use security questions for account recovery.
         else:
             error = 'Invalid credentials'
+
+
     return render_template('login.html', error=error)
+
+@app.route('/recover', methods=['GET', 'POST'])
+def recover_account():
+
+# If implementing account recovery, use security questions to verify user identity before allowing password reset.
+    
+    pass
+
 
 @app.route('/send_message', methods=['POST'])
 def send_message():
@@ -159,6 +171,34 @@ def logout():
     session.clear()
     flash('You have been successfully logged out.', 'info')  # Flash a logout success message
     return redirect(url_for('index'))
+
+@app.route('/register', methods=['GET', 'POST'])
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        userDetails = request.form
+        username = userDetails['username']
+        password = userDetails['password']
+        cur = mysql.connection.cursor()
+        
+        # Check if user already exists
+        cur.execute("SELECT user_id FROM users WHERE username=%s", [username])
+        if cur.fetchone():
+            flash('Username already exists. Please choose a different one.', 'danger')
+            return render_template('register.html')
+        
+        # Insert new user
+        cur.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, password))
+        mysql.connection.commit()
+        cur.close()
+
+        flash('Registration successful! Please login.', 'success')
+        return redirect(url_for('login'))
+
+        # Within the user registration route, implement the logic to generate and store OTP secrets,
+        # collect and store security questions and answers, and memorized secret verifiers.
+    return render_template('register.html')
+
 
 if __name__ == '__main__':
     app.run(debug=True)
