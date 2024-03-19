@@ -31,6 +31,8 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 from flask_mysqldb import MySQL
 from flask_session import Session
 import yaml
+from key_exchange import setup_key_exchange_routes
+
 
 app = Flask(__name__)
 
@@ -125,6 +127,10 @@ def recover_account():
     
     pass
 
+@app.route('/ecdh')
+def ecdh_demo():
+    return render_template('ecdh.html')
+
 
 @app.route('/send_message', methods=['POST'])
 def send_message():
@@ -173,7 +179,6 @@ def logout():
     return redirect(url_for('index'))
 
 @app.route('/register', methods=['GET', 'POST'])
-@app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
         userDetails = request.form
@@ -199,6 +204,11 @@ def register():
         # collect and store security questions and answers, and memorized secret verifiers.
     return render_template('register.html')
 
+    public_keys = {}
+
+
+
+setup_key_exchange_routes(app)
 
 if __name__ == '__main__':
     app.run(debug=True)
