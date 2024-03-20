@@ -31,8 +31,8 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 from flask_mysqldb import MySQL
 from flask_session import Session
 import yaml
+from flask_bcrypt import Bcrypt
 from key_exchange import setup_key_exchange_routes
-import bcrypt
 
 
 app = Flask(__name__)
@@ -254,7 +254,7 @@ def get_public_key(username):
     public_keys = {}
 
 
-
+bcrypt = Bcrypt(app)
 #setup_key_exchange_routes(app)
 
 if __name__ == '__main__':
