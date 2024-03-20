@@ -181,52 +181,25 @@ def logout():
     flash('You have been successfully logged out.', 'info')  # Flash a logout success message
     return redirect(url_for('index'))
     
-'''
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    if request.method == 'POST':
-        userDetails = request.form
-        username = userDetails['username']
-        password = userDetails['password']
-        public_key = userDetails['public_key']  # Assuming the public key is sent as part of the form data
+    if request.method == 'GET':
+        # Display the registration form
+        return render_template('register.html')
+    elif request.method == 'POST':
+        print(request.form)
+        # Process the form data and register the user
+        username = request.form['username']
+        password = request.form['password']
+        public_key = request.form['public_key']  # Make sure you have an input for this in your form
 
-        # Hash the password using bcrypt
-        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-
-        cur = mysql.connection.cursor()
-
-        # Check if user already exists
-        cur.execute("SELECT user_id FROM users WHERE username=%s", [username])
-        if cur.fetchone():
-            flash('Username already exists. Please choose a different one.', 'danger')
-            return render_template('register.html')
-        
-        # Insert new user along with the public key
-        cur.execute("INSERT INTO users (username, password, public_key) VALUES (%s, %s, %s)", (username, hashed_password, public_key))
-        mysql.connection.commit()
-        cur.close()
-
-        flash('Registration successful! Please login.', 'success')
-        return redirect(url_for('login'))
-    return render_template('register.html')
-'''
-## i'll complete it in e2ee
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        userDetails = request.form
-        username = userDetails['username']
-        password = userDetails['password']
-        
         # Hash the password
         hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
 
-        cur = mysql.connection.cursor()
-
-        # Insert new user along with the hashed password
         try:
-            cur.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, hashed_password))
+            cur = mysql.connection.cursor()
+            cur.execute("INSERT INTO users (username, password, public_key) VALUES (%s, %s, %s)", 
+                        (username, hashed_password, public_key))
             mysql.connection.commit()
             flash('Registration successful! Please login.', 'success')
         except Exception as e:
@@ -235,7 +208,7 @@ def register():
             cur.close()
 
         return redirect(url_for('login'))
-    return render_template('register.html')
+
 
 
 

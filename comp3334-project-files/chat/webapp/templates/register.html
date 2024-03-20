@@ -22,7 +22,7 @@
         {% if error %}
             <div class="alert alert-danger">{{ error }}</div>
         {% endif %}
-        <form action="/register" method="post">
+        <form action="/register" method="post" id="registrationForm">
             <div class="form-group">
                 <label for="username">Username</label>
                 <input type="text" class="form-control" id="username" name="username" required>
@@ -34,7 +34,7 @@
 
             <!-- OTP Setup -->
             <div class="form-group">
-                <label for="otp">OTP Secret (Scan with Google Authenticator)</label>
+                <label for="otp">OTP Secret </label>
                 <input type="text" class="form-control" id="otp" name="otp" readonly>
                 <small class="form-text text-muted">Scan the QR code with your Google Authenticator app to enable OTP verification.</small>
             </div>
@@ -60,14 +60,17 @@
                 <input type="password" class="form-control" id="memorizedSecret" name="memorizedSecret">
                 <small class="form-text text-muted">Enter an additional password or phrase you can remember.</small>
             </div>
+            <input type="hidden" name="public_key" id="publicKey">
 
             <div class="text-center">
                 <button type="submit" class="btn btn-primary">Register</button>
             </div>
+
         </form>
         <div class="text-center mt-3">
             <a href="/login" class="btn btn-secondary">Back to Login</a>
         </div>
     </div>
+    <script src="{{ url_for('static', filename='js/register.js') }}"></script>
 </body>
 </html>
