@@ -32,6 +32,7 @@ from flask_mysqldb import MySQL
 from flask_session import Session
 import yaml
 from key_exchange import setup_key_exchange_routes
+import bcrypt
 
 
 app = Flask(__name__)
@@ -105,20 +106,22 @@ def login():
         userDetails = request.form
         username = userDetails['username']
         password = userDetails['password']
+        
         cur = mysql.connection.cursor()
-        cur.execute("SELECT user_id FROM users WHERE username=%s AND password=%s", (username, password,))
+        cur.execute("SELECT user_id, password FROM users WHERE username = %s", [username])
         account = cur.fetchone()
-        if account:
+        
+        if account and bcrypt.check_password_hash(account[1], password):
             session['username'] = username
             session['user_id'] = account[0]
             return redirect(url_for('index'))
-            # During login, verify the OTP from Google Authenticator, check the memorized secret verifier,
-            # and potentially use security questions for account recovery.
         else:
-            error = 'Invalid credentials'
-
+            error = 'Invalid username or password'
+        cur.close()
 
     return render_template('login.html', error=error)
+
+
 
 @app.route('/recover', methods=['GET', 'POST'])
 def recover_account():
@@ -177,6 +180,37 @@ def logout():
     session.clear()
     flash('You have been successfully logged out.', 'info')  # Flash a logout success message
     return redirect(url_for('index'))
+    
+'''
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        userDetails = request.form
+        username = userDetails['username']
+        password = userDetails['password']
+        public_key = userDetails['public_key']  # Assuming the public key is sent as part of the form data
+
+        # Hash the password using bcrypt
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+
+        cur = mysql.connection.cursor()
+
+        # Check if user already exists
+        cur.execute("SELECT user_id FROM users WHERE username=%s", [username])
+        if cur.fetchone():
+            flash('Username already exists. Please choose a different one.', 'danger')
+            return render_template('register.html')
+        
+        # Insert new user along with the public key
+        cur.execute("INSERT INTO users (username, password, public_key) VALUES (%s, %s, %s)", (username, hashed_password, public_key))
+        mysql.connection.commit()
+        cur.close()
+
+        flash('Registration successful! Please login.', 'success')
+        return redirect(url_for('login'))
+    return render_template('register.html')
+'''
+## i'll complete it in e2ee
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -184,31 +218,44 @@ def register():
         userDetails = request.form
         username = userDetails['username']
         password = userDetails['password']
+        
+        # Hash the password
+        hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+
         cur = mysql.connection.cursor()
-        
-        # Check if user already exists
-        cur.execute("SELECT user_id FROM users WHERE username=%s", [username])
-        if cur.fetchone():
-            flash('Username already exists. Please choose a different one.', 'danger')
-            return render_template('register.html')
-        
-        # Insert new user
-        cur.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, password))
-        mysql.connection.commit()
-        cur.close()
 
-        flash('Registration successful! Please login.', 'success')
+        # Insert new user along with the hashed password
+        try:
+            cur.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, hashed_password))
+            mysql.connection.commit()
+            flash('Registration successful! Please login.', 'success')
+        except Exception as e:
+            flash(str(e), 'danger')  # Handle errors like duplicate username
+        finally:
+            cur.close()
+
         return redirect(url_for('login'))
-
-        # Within the user registration route, implement the logic to generate and store OTP secrets,
-        # collect and store security questions and answers, and memorized secret verifiers.
     return render_template('register.html')
+
+
+
+
+@app.route('/get_public_key/<username>', methods=['GET'])
+def get_public_key(username):
+    cur = mysql.connection.cursor()
+    cur.execute("SELECT public_key FROM users WHERE username = %s", [username])
+    result = cur.fetchone()
+    if result:
+        return jsonify({'public_key': result[0]})
+    else:
+        return jsonify({'error': 'User not found'}), 404
+
 
     public_keys = {}
 
 
 
-setup_key_exchange_routes(app)
+#setup_key_exchange_routes(app)
 
 if __name__ == '__main__':
     app.run(debug=True)
