@@ -229,6 +229,15 @@ def update_public_key():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/sendPublicKey', methods=['POST'])
+def handle_public_key_submission():
+    data = request.get_json()
+    public_key = data.get('publicKey')
+    # Process the public key (e.g., store in the database)
+    return jsonify({'message': 'Public key received successfully'}), 200
+
+
+
 @app.route('/get_public_key/<username>', methods=['GET'])
 def get_public_key(username):
     cur = mysql.connection.cursor()
