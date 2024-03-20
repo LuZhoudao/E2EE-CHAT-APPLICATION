@@ -45,15 +45,96 @@ let lastMessageId = 0;
 let peer_id = -1;
 const myID = {{ sender_id }};
 let userInfo = {};
+let userPrivateKey;
+let sharedSecrets = {}; // Object to store shared secrets with each peer
+
+
+async function generateAndSendECDHPublicKey() {
+    const keyPair = await window.crypto.subtle.generateKey({
+        name: "ECDH",
+        namedCurve: "P-384"
+    }, true, ["deriveKey", "deriveBits"]);
+    userPrivateKey = keyPair.privateKey;
+    const publicKey = await window.crypto.subtle.exportKey("spki", keyPair.publicKey);
+
+    // Here, convert the publicKey to a base64-encoded string or any other format suitable for your backend.
+    // Then, send this public key to the server where it can be associated with the current user's account.
+    // Assume a function sendPublicKeyToServer exists for this purpose.
+    sendPublicKeyToServer(/* publicKey in desired format */);
+}
+
+async function fetchAndSetupEncryptionWithPeer(peerId) {
+    const peerPublicKey = await fetchPeerPublicKey(peerId);
+    // Convert peerPublicKey from fetched format to ArrayBuffer if necessary
+
+    const importedPeerPublicKey = await window.crypto.subtle.importKey(
+        "spki",
+        peerPublicKey, // Ensure this is an ArrayBuffer
+        { name: "ECDH", namedCurve: "P-384" },
+        false,
+        []
+    );
+
+    const sharedSecret = await window.crypto.subtle.deriveBits(
+        { name: "ECDH", public: importedPeerPublicKey },
+        userPrivateKey,
+        384
+    );
+
+    // Convert sharedSecret into encryption keys using HKDF
+    // Store in sharedSecrets object for use in encryption/decryption
+}
+
+
+// Placeholder function to send public key to server
+async function sendPublicKeyToServer(publicKey) {
+    // Example of converting the public key to a base64 string
+    const publicKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(publicKey)));
+
+    // Example fetch request to send the public key to the server
+    try {
+        const response = await fetch('/api/sendPublicKey', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ publicKey: publicKeyBase64 }),
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to send public key to server');
+        }
+
+        // Handle response
+        const result = await response.json();
+        console.log('Public key sent successfully', result);
+    } catch (error) {
+        console.error('Error sending public key to server:', error);
+    }
+}
+
+// Placeholder function to fetch peer public key from server
+async function fetchPeerPublicKey(peerId) {
+    // Implementation depends on your backend API
+    // Return the public key in a format suitable for importKey
+}
 
 // Ctrl+Enter to send message
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+    try {
+        await generateAndSendECDHPublicKey();
+    } catch (error) {
+        console.error("Error in key generation or sending:", error);
+    }
     document.getElementById('messageInput').addEventListener('keydown', function(e) {
         if (e.ctrlKey && e.key === 'Enter') {
             sendMessage();
         }
     });
+
+    // Additional setup here
 });
+
 
 // Send message function
 function sendMessage() {

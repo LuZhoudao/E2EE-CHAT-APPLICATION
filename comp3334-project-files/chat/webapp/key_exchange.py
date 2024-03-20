@@ -19,3 +19,21 @@ def setup_key_exchange_routes(app):
         else:
             return jsonify({"error": "Public key not found."}), 404
 
+
+@app.route('/update_public_key', methods=['POST'])
+def update_public_key():
+    if 'user_id' not in session:
+        return jsonify({'error': 'User not authenticated'}), 403
+
+    user_id = session['user_id']
+    public_key = request.json.get('public_key')
+    if not public_key:
+        return jsonify({'error': 'No public key provided'}), 400
+
+    try:
+        cur = mysql.connection.cursor()
+        cur.execute("UPDATE users SET public_key=%s WHERE user_id=%s", (public_key, user_id))
+        mysql.connection.commit()
+        return jsonify({'success': 'Public key updated successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
