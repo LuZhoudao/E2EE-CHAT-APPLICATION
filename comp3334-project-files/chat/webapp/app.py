@@ -32,13 +32,14 @@ from flask_mysqldb import MySQL
 from flask_session import Session
 import yaml
 from flask_bcrypt import Bcrypt
-
-
+from Crypto.Cipher import AES
+from helpers import AESencrypt, AESdecrypt
+from base64 import b64encode, b64decode
 
 app = Flask(__name__)
 
 # Configure secret key and Flask-Session
-app.config['SECRET_KEY'] = 'your_secret_key_here'
+app.config['SECRET_KEY'] = b'9\x13\x07j\xf9\x19\xff\x94\xb6\x04\x91\xf31T\x96c'
 app.config['SESSION_TYPE'] = 'filesystem'  # Options: 'filesystem', 'redis', 'memcached', etc.
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_USE_SIGNER'] = True  # To sign session cookies for extra security
@@ -98,6 +99,7 @@ def fetch_messages():
 
     cur.close()
     return jsonify({'messages': messages})
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -193,13 +195,24 @@ def register():
         password = request.form['password']
         public_key = request.form['public_key']  # Make sure you have an input for this in your form
 
+        security_question = request.form['securityQuestion']
+        security_answer = request.form['securityAnswer']
+
         # Hash the password
         hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
 
+        # encrypt question and answer
+        cipher = AES.new(app.config['SECRET_KEY'], AES.MODE_CBC)
+        iv = b64encode(cipher.iv).decode('utf-8')
+        encrypted_question = AESencrypt(cipher, security_question.encode())
+        #decrypted_question = AESdecrypt(app.config['SECRET_KEY'], iv, security_question)
+        encrypted_answer = AESencrypt(cipher, security_answer.encode())
+        #decrypted_answer = AESdecrypt(app.config['SECRET_KEY'], iv, security_answer)
+
         try:
             cur = mysql.connection.cursor()
-            cur.execute("INSERT INTO users (username, password, public_key) VALUES (%s, %s, %s)", 
-                        (username, hashed_password, public_key))
+            cur.execute("INSERT INTO users (username, password, security_question, security_answer, public_key, iv) VALUES (%s, %s, %s, %s, %s, %s)",
+                        (username, hashed_password, encrypted_question, encrypted_answer, public_key, iv))
             mysql.connection.commit()
             flash('Registration successful! Please login.', 'success')
         except Exception as e:
