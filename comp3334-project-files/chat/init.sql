@@ -28,10 +28,3 @@ CREATE TABLE messages (
     FOREIGN KEY (sender_id) REFERENCES users(user_id),
     FOREIGN KEY (receiver_id) REFERENCES users(user_id)
 );
-
--- Optionally, insert some initial data for testing
--- Passwords here should be hashed using bcrypt in your application logic before insertion
-INSERT INTO users (username, password, security_question, security_answer, public_key, iv) VALUES ('Alice', '$2a$12$EkxeOAtfwLmBn.lVJHsUkOy1v8u0IV7QvGQbbXwJkXCeQmY8OZEKG', '<security_question>', '<security_answer>', '<public_key>', '<iv>');
-# Alice:password123
-INSERT INTO users (username, password, security_question, security_answer, public_key, iv) VALUES ('Bob', '$2a$12$NrD7cuHZg7auAIlAdIWFB.Z7AKZhlrzZ5In9Enxsd46jagmSYVLGe',  '<security_question>', '<security_answer>', '<public_key>', '<iv>');
-#Bob:password456
