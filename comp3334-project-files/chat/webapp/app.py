@@ -33,8 +33,13 @@ from flask_session import Session
 import yaml
 from flask_bcrypt import Bcrypt
 from Crypto.Cipher import AES
-from helpers import AESencrypt, AESdecrypt
+from helpers import AESencrypt, AESdecrypt, get_totp_uri, verify_totp
 from base64 import b64encode, b64decode
+import os
+import base64
+from io import BytesIO
+import pyqrcode
+
 
 app = Flask(__name__)
 
@@ -110,15 +115,15 @@ def login():
         password = userDetails['password']
         
         cur = mysql.connection.cursor()
-        cur.execute("SELECT user_id, password FROM users WHERE username = %s", [username])
+        cur.execute("SELECT user_id, password, totp_secret FROM users WHERE username = %s", [username])
         account = cur.fetchone()
         
-        if account and bcrypt.check_password_hash(account[1], password):
+        if account and bcrypt.check_password_hash(account[1], password) and verify_totp(account[2]):
             session['username'] = username
             session['user_id'] = account[0]
             return redirect(url_for('index'))
         else:
-            error = 'Invalid username or password'
+            error = 'Invalid username or password or token.'
         cur.close()
 
     return render_template('login.html', error=error)
@@ -211,14 +216,19 @@ def register():
 
         try:
             cur = mysql.connection.cursor()
-            cur.execute("INSERT INTO users (username, password, security_question, security_answer, public_key, iv) VALUES (%s, %s, %s, %s, %s, %s)",
-                        (username, hashed_password, encrypted_question, encrypted_answer, public_key, iv))
+            totp_secret = base64.b32encode(os.urandom(10)).decode('utf-8')
+            cur.execute("INSERT INTO users (username, password, security_question, security_answer, public_key, iv, totp_secret) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                        (username, hashed_password, encrypted_question, encrypted_answer, public_key, iv, totp_secret))
             mysql.connection.commit()
-            flash('Registration successful! Please login.', 'success')
+            cur.close()
+            flash('You are now registered.', 'success')
+            session['username'] = username
+            return redirect(url_for('qr'))
+            #flash('Registration successful! Please login.', 'success')
         except Exception as e:
             flash(str(e), 'danger')  # Handle errors like duplicate username
-        finally:
-            cur.close()
+        # finally:
+        #     cur.close()
 
         return redirect(url_for('login'))
 
@@ -263,6 +273,57 @@ def get_public_key(username):
 
 
     public_keys = {}
+
+
+@app.route('/qr')
+def qr():
+    if 'username' not in session:
+        return redirect(url_for('register'))
+    username = session['username']
+    cur = mysql.connection.cursor()
+    cur.execute("SELECT user_id FROM users WHERE username = %s", [username])
+    account = cur.fetchone()
+    cur.close()
+
+    if account:
+        return render_template('qr.html'), 200, {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'}
+    else:
+        abort(404)
+
+
+
+@app.route('/qr_code')
+def qr_code():
+    if 'username' not in session:
+        return redirect(url_for('register'))
+    username = session['username']
+    # user = User.query.filter_by(username=username).first()
+    # if user is None:
+    #     abort(404)
+
+    #del session['username']
+
+    username = session['username']
+    cur = mysql.connection.cursor()
+    cur.execute("SELECT user_id, totp_secret FROM users WHERE username = %s", [username])
+    account = cur.fetchone()
+    cur.close()
+    if account:
+        url = pyqrcode.create(get_totp_uri(username, account[1]))
+        stream = BytesIO()
+        url.svg(stream, scale=5)
+        return stream.getvalue(), 200, {
+            'Content-Type': 'image/svg+xml',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'}
+    else:
+        abort(404)
+
+
 
 
 bcrypt = Bcrypt(app)
