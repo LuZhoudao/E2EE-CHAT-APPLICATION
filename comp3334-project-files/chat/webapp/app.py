@@ -39,7 +39,7 @@ import os
 import base64
 from io import BytesIO
 import pyqrcode
-
+import onetimepass
 
 app = Flask(__name__)
 
@@ -108,25 +108,24 @@ def fetch_messages():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    error = None
     if request.method == 'POST':
-        userDetails = request.form
-        username = userDetails['username']
-        password = userDetails['password']
+        username = request.form['username']
+        password = request.form['password']
         
         cur = mysql.connection.cursor()
-        cur.execute("SELECT user_id, password, totp_secret FROM users WHERE username = %s", [username])
+        cur.execute("SELECT user_id, password FROM users WHERE username = %s", [username])
         account = cur.fetchone()
         
-        if account and bcrypt.check_password_hash(account[1], password) and verify_totp(account[2]):
-            session['username'] = username
-            session['user_id'] = account[0]
-            return redirect(url_for('index'))
+        if account and bcrypt.check_password_hash(account[1], password):
+            session['user_id_temp'] = account[0]  # Temporarily store user ID
+            session['username_password_verified'] = True
+            return redirect(url_for('verify_totp'))  # Redirect to TOTP verification
         else:
             error = 'Invalid username or password or token.'
-        cur.close()
+            pass
+    # Show login form
+    return render_template('login.html')
 
-    return render_template('login.html', error=error)
 
 
 
@@ -323,6 +322,30 @@ def qr_code():
     else:
         abort(404)
 
+@app.route('/verify_totp', methods=['GET', 'POST'])
+def verify_totp():
+    if not session.get('username_password_verified'):
+        return redirect(url_for('login'))  # Redirect back if the initial check wasn't passed
+
+    if request.method == 'POST':
+        user_totp_token = request.form['token']
+        user_id_temp = session.get('user_id_temp')
+
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT totp_secret FROM users WHERE user_id = %s", [user_id_temp])
+        account = cur.fetchone()
+
+        if account and onetimepass.valid_totp(token=user_totp_token, secret=account[0]):
+            # TOTP is correct, complete login
+            session['user_id'] = user_id_temp  # Now officially logged in
+            del session['user_id_temp']  # Clean up
+            del session['username_password_verified']
+            return redirect(url_for('index'))  # or wherever you want to redirect after login
+        else:
+            
+            pass
+    # Show TOTP verification form
+    return render_template('verify_totp.html')
 
 
 
