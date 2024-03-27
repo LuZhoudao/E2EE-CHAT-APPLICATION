@@ -27,5 +27,3 @@ def get_totp_uri(username, totp_secret):
 
 def verify_totp(totp_secret):
     return otp.valid_totp(StringField('Token', validators=[DataRequired()]), totp_secret)
-
-

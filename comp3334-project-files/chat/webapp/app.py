@@ -1,32 +1,3 @@
-# -*- coding: utf-8 -*-
-# ==============================================================================
-# Copyright (c) 2024 Xavier de Carné de Carnavalet
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-# 
-# 1. Redistributions of source code must retain the above copyright notice,
-#    this list of conditions and the following disclaimer.
-# 
-# 2. Redistributions in binary form must reproduce the above copyright notice,
-#    this list of conditions and the following disclaimer in the documentation
-#    and/or other materials provided with the distribution.
-# 
-# 3. The name of the author may not be used to endorse or promote products
-#    derived from this software without specific prior written permission.
-# 
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-# ==============================================================================
-
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, abort, flash
 from flask_mysqldb import MySQL
 from flask_session import Session
@@ -35,6 +6,7 @@ from flask_bcrypt import Bcrypt
 from Crypto.Cipher import AES
 from helpers import AESencrypt, AESdecrypt, get_totp_uri, verify_totp
 from base64 import b64encode, b64decode
+from key_exchange import setup_key_exchange_routes, update_public_key
 import os
 import base64
 from io import BytesIO
@@ -52,11 +24,12 @@ app.config['SESSION_FILE_DIR'] = './sessions'  # Needed if using filesystem type
 
 # Load database configuration from db.yaml or configure directly here
 db_config = yaml.load(open('db.yaml'), Loader=yaml.FullLoader)
-app.config['MYSQL_HOST'] = db_config['mysql_host']
-app.config['MYSQL_USER'] = db_config['mysql_user']
-app.config['MYSQL_PASSWORD'] = db_config['mysql_password']
-app.config['MYSQL_DB'] = db_config['mysql_db']
-
+app.config.update(
+    MYSQL_DB=db_config['mysql_db'],
+    MYSQL_USER=db_config['mysql_user'],
+    MYSQL_PASSWORD=db_config['mysql_password'],
+    MYSQL_HOST=db_config['mysql_host']
+)
 mysql = MySQL(app)
 
 # Initialize the Flask-Session
@@ -234,19 +207,23 @@ def register():
 
 @app.route('/update_public_key', methods=['POST'])
 def update_public_key():
-    if 'user_id' not in session:
-        return jsonify({'error': 'User not authenticated'}), 403
+    # Ensure the user is authenticated
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'Authentication required'}), 403
 
-    user_id = session['user_id']
+    # Obtain the public key from the request
     public_key = request.json.get('public_key')
     if not public_key:
         return jsonify({'error': 'No public key provided'}), 400
 
+    # Update the user's public key in the database
     try:
         cur = mysql.connection.cursor()
         cur.execute("UPDATE users SET public_key=%s WHERE user_id=%s", (public_key, user_id))
         mysql.connection.commit()
-        return jsonify({'success': 'Public key updated successfully'}), 200
+        cur.close()
+        return jsonify({'message': 'Public key updated successfully'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -260,18 +237,17 @@ def handle_public_key_submission():
 
 
 
-@app.route('/get_public_key/<username>', methods=['GET'])
-def get_public_key(username):
+@app.route('/get_public_key/<user_id>', methods=['GET'])
+def get_public_key(user_id):
+    # Retrieve a user's public key
     cur = mysql.connection.cursor()
-    cur.execute("SELECT public_key FROM users WHERE username = %s", [username])
+    cur.execute("SELECT public_key FROM users WHERE user_id=%s", [user_id])
     result = cur.fetchone()
+    cur.close()
     if result:
         return jsonify({'public_key': result[0]})
     else:
         return jsonify({'error': 'User not found'}), 404
-
-
-    public_keys = {}
 
 
 @app.route('/qr')

@@ -61,72 +61,58 @@ async function deriveSharedSecret(yourPrivateKey, othersPublicKey) {
 }
 
 // Function to derive encryption and MAC keys from the shared secret using HKDF
-async function deriveEncryptionAndMacKeys(sharedSecret, salt, infoPrefix) {
-    // Derive a key for encryption
-    const encryptionKey = await window.crypto.subtle.deriveKey(
+async function deriveKeys(sharedSecret, salt, otherUserId, direction = 'to') {
+    const sharedSecretKey = await window.crypto.subtle.importKey(
+        "raw",
+        sharedSecret,
+        { name: "HKDF" },
+        false,
+        ["deriveKey"]
+    );
+
+    // Define HKDF parameters for encryption and MAC keys
+    const baseInfo = `CHAT_KEY_USER${direction}${otherUserId}`;
+    const encryptionInfo = `${baseInfo}_ENCRYPTION`;
+    const macInfo = `${baseInfo}_MAC`;
+
+    // Derive the AES-GCM encryption key
+    const aesKey = await window.crypto.subtle.deriveKey(
         {
             name: "HKDF",
             salt: salt,
-            info: new TextEncoder().encode(infoPrefix + "_ENCRYPTION"),
+            info: new TextEncoder().encode(encryptionInfo),
             hash: "SHA-256"
         },
-        await window.crypto.subtle.importKey(
-            "raw",
-            sharedSecret,
-            {name: "HKDF"},
-            false,
-            ["deriveKey"]
-        ),
-        {name: "AES-GCM", length: 256},
+        sharedSecretKey,
+        { name: "AES-GCM", length: 256 },
         true,
         ["encrypt", "decrypt"]
     );
 
-    // Derive a key for MAC
+    // Derive the HMAC key
     const macKey = await window.crypto.subtle.deriveKey(
         {
             name: "HKDF",
             salt: salt,
-            info: new TextEncoder().encode(infoPrefix + "_MAC"),
+            info: new TextEncoder().encode(macInfo),
             hash: "SHA-256"
         },
-        await window.crypto.subtle.importKey(
-            "raw",
-            sharedSecret,
-            {name: "HKDF"},
-            false,
-            ["deriveKey"]
-        ),
-        {name: "HMAC", hash: "SHA-256"},
+        sharedSecretKey,
+        { name: "HMAC", hash: "SHA-256" },
         true,
         ["sign", "verify"]
     );
 
-    return { encryptionKey, macKey };
+    return { aesKey, macKey };
 }
 
 // start the ECDH key exchange and key derivation process
 async function startKeyExchange(yourUserId, otherUserId) {
-    // Generate key pair and export the public key
-    console.log("Starting key exchange...");
-    const yourKeyPair = await generateKeyPair();
-    const exportedPublicKey = await exportPublicKey(yourKeyPair.publicKey);
+    const salt = window.crypto.getRandomValues(new Uint8Array(16)); // Example unique salt
+    const { aesKey, macKey } = await deriveKeys(sharedSecret, salt, otherUserId, 'to');
 
-    // Send your public key to the server and retrieve the other user's public key
-    await sendPublicKeyToServer(yourUserId, exportedPublicKey);
-    const othersExportedPublicKey = await getOtherPublicKeyFromServer(otherUserId);
-
-    // Derive the shared secret
-    sharedSecret = await deriveSharedSecret(yourKeyPair.privateKey, othersExportedPublicKey);
-
-    // Example salt and info for key derivation
-    const salt = window.crypto.getRandomValues(new Uint8Array(16)); // Example salt, should be unique for each derivation
-    const infoPrefix = `CHAT_KEY_${yourUserId}to${otherUserId}`;
-
-    // Derive encryption and MAC keys from the shared secret
-    derivedKeys[otherUserId] = await deriveEncryptionAndMacKeys(sharedSecret, salt, infoPrefix);
-
-    console.log("Keys derived successfully", derivedKeys[otherUserId]);
+    console.log("Derived AES Key:", aesKey);
+    console.log("Derived MAC Key:", macKey);
 }
 
 // Example: Expose the startKeyExchange function to be callable from the global scope for testing

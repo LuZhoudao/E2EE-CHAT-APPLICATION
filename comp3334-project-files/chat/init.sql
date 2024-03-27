@@ -12,8 +12,8 @@ CREATE TABLE users (
     password VARCHAR(255) NOT NULL, -- Passwords will be stored as bcrypt hashes
     security_question VARCHAR(255) NOT NULL,
     security_answer VARCHAR(255) NOT NULL,
-    public_key VARCHAR(2048) NOT NULL,
-    iv VARBINARY(32), -- For AES CBC mode encryption of user info
+    public_key VARCHAR(2048), -- ECDH public key for secure key exchange
+    iv VARBINARY(32), -- For AES CBC mode encryption of user info (optional, based on your security design)
     totp_secret VARCHAR(16) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -23,16 +23,9 @@ CREATE TABLE messages (
     message_id INT AUTO_INCREMENT PRIMARY KEY,
     sender_id INT NOT NULL,
     receiver_id INT NOT NULL,
-    message_text TEXT NOT NULL, -- Consider storing encrypted messages here
-    nonce VARBINARY(12), -- Nonce for AES GCM mode encryption of messages
+    message_text TEXT NOT NULL, -- Encrypted messages
+    nonce VARBINARY(12), -- Nonce for AES GCM mode encryption of messages (if applicable)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (sender_id) REFERENCES users(user_id),
     FOREIGN KEY (receiver_id) REFERENCES users(user_id)
 );
-
--- Optionally, insert some initial data for testing
--- Passwords here should be hashed using bcrypt in your application logic before insertion
-INSERT INTO users (username, password, security_question, security_answer, public_key, iv, totp_secret) VALUES ('Alice', '$2a$12$EkxeOAtfwLmBn.lVJHsUkOy1v8u0IV7QvGQbbXwJkXCeQmY8OZEKG', '<security_question>', '<security_answer>', '<public_key>', '<iv>', '<totp_secret>');
-# Alice:password123
-INSERT INTO users (username, password, security_question, security_answer, public_key, iv, totp_secret) VALUES ('Bob', '$2a$12$NrD7cuHZg7auAIlAdIWFB.Z7AKZhlrzZ5In9Enxsd46jagmSYVLGe',  '<security_question>', '<security_answer>', '<public_key>', '<iv>', '<totp_secret>');
-#Bob:password456
