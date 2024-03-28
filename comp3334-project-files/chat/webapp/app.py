@@ -171,7 +171,6 @@ def register():
         username = request.form['username']
         password = request.form['password']
         public_key = request.form['public_key']  # Make sure you have an input for this in your form
-
         security_question = request.form['securityQuestion']
         security_answer = request.form['securityAnswer']
 
@@ -322,8 +321,6 @@ def verify_totp():
             pass
     # Show TOTP verification form
     return render_template('verify_totp.html')
-
-
 
 bcrypt = Bcrypt(app)
 #setup_key_exchange_routes(app)
