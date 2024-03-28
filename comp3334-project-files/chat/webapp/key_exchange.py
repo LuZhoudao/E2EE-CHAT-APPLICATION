@@ -1,5 +1,7 @@
-from flask import request, jsonify
+from flask import request, jsonify, Flask
 
+
+app = Flask(__name__)
 
 public_keys = {}
 
