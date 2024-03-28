@@ -95,6 +95,7 @@ def login():
             return redirect(url_for('verify_totp'))  # Redirect to TOTP verification
         else:
             error = 'Invalid username or password or token.'
+            flash(error,'danger')
             pass
     # Show login form
     return render_template('login.html')
