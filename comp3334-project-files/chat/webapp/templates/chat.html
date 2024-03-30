@@ -181,16 +181,34 @@ async function fetchPeerPublicKey(peerId) {
     // Return the public key in a format suitable for importKey
 }
 
-// Ctrl+Enter to send message
 document.addEventListener('DOMContentLoaded', async function() {
     try {
         await generateAndSendECDHPublicKey();
     } catch (error) {
         console.error("Error in key generation or sending:", error);
     }
-    document.getElementById('messageInput').addEventListener('keydown', function(e) {
+
+    document.getElementById('messageInput').addEventListener('keydown', async function(e) {
         if (e.ctrlKey && e.key === 'Enter') {
-            sendMessage();
+            const messageText = document.getElementById('messageInput').value;
+            if (messageText) {
+                // Simulate encrypting and sending the message
+                try {
+                    // Assuming aesKey and macKey are already derived and available
+                    const {aesKey, hmacKey} = await deriveKeys(/* parameters needed, such as sharedSecret, salt, etc. */);
+                    const encryptedData = await encryptMessage(messageText, aesKey, hmacKey);
+                    console.log("Encrypted data:", encryptedData);
+
+                    // Simulate receiving and decrypting the message
+                    const decryptedMessage = await decryptAndVerifyMessage(encryptedData, aesKey, hmacKey);
+                    console.log("Decrypted message:", decryptedMessage);
+
+                    // Clear the message input field after processing
+                    document.getElementById('messageInput').value = '';
+                } catch (encryptionError) {
+                    console.error("Error encrypting or sending message:", encryptionError);
+                }
+            }
         }
     });
 
