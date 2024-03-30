@@ -216,10 +216,27 @@ document.addEventListener('DOMContentLoaded', async function() {
 });
 
 
+// Global object to manage IVs for each peer
+const ivCounters = {
+    // Example: "user2": { send: 0, receive: 0 }
+};
+
+// Function to generate a unique IV based on a counter
+function generateIVForUser(userId, direction) {
+    if (!ivCounters[userId]) {
+        ivCounters[userId] = { send: 0, receive: 0 };
+    }
+    ivCounters[userId][direction] += 1;
+    const ivCounter = ivCounters[userId][direction];
+    const iv = new Uint8Array(12); // 96-bit IV
+    iv.set(new Uint8Array([ivCounter >> 24, ivCounter >> 16, ivCounter >> 8, ivCounter]), 8); // Example counter usage
+    return iv;
+}
+
 // Assuming aesKey and macKey are already derived and available
 // ivCounters should be managed globally to track IVs for each chat session
 
-async function encryptAndSendMessage(receiverUserId, message, aesKey, macKey) {
+async function sendMessage(receiverUserId, message, aesKey, macKey) {
     const encoder = new TextEncoder();
 
     // Generate a unique IV for this message based on a counter
