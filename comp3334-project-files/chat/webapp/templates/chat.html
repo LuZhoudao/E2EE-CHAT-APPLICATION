@@ -236,51 +236,111 @@ function generateIVForUser(userId, direction) {
 // Assuming aesKey and macKey are already derived and available
 // ivCounters should be managed globally to track IVs for each chat session
 
-async function sendMessage(receiverUserId, message, aesKey, macKey) {
-    const encoder = new TextEncoder();
+async function storeKeys(aesKey, macKey, receiverUserId) {
+    // Export the AES-GCM encryption key
+    const aesKeyExported = await window.crypto.subtle.exportKey("jwk", aesKey);
+    // Export the HMAC key
+    const macKeyExported = await window.crypto.subtle.exportKey("jwk", macKey);
 
-    // Generate a unique IV for this message based on a counter
-    const iv = generateIVForUser(receiverUserId, 'send');
-    const additionalData = encoder.encode(`CHAT_MSG_USER1to${receiverUserId}`);
+    // Serialize and store in Local Storage
+    localStorage.setItem('aesKey', JSON.stringify(aesKeyExported));
+    localStorage.setItem('macKey', JSON.stringify(macKeyExported));
 
-    // Encrypt the message
-    const ciphertext = await window.crypto.subtle.encrypt(
-        {
-            name: "AES-GCM",
-            iv: iv,
-            additionalData: additionalData,
-        },
-        aesKey,
-        encoder.encode(message)
-    );
-
-    // Protect the IV with HMAC
-    const hmac = await window.crypto.subtle.sign(
-        {
-            name: "HMAC",
-        },
-        macKey,
-        iv // It's important that the IV is exactly what you encrypted with, including its length
-    );
-
-    // Convert the ciphertext and HMAC into formats suitable for sending (e.g., Base64)
-    const ciphertextBase64 = arrayBufferToBase64(ciphertext);
-    const ivBase64 = arrayBufferToBase64(iv);
-    const hmacBase64 = arrayBufferToBase64(hmac);
-
-    // Prepare the message payload
-    const payload = {
-        receiverUserId,
-        ciphertext: ciphertextBase64,
-        iv: ivBase64,
-        hmac: hmacBase64,
-        additionalData: additionalData // You might choose to send this, depending on your needs
-    };
-
-    // Placeholder for sending the payload to the receiver
-    console.log("Sending encrypted message payload:", payload);
-    // Here, you would typically make a fetch() call or use WebSockets to send 'payload' to your server
+    // Store receiverUserId
+    localStorage.setItem('receiverUserId', receiverUserId);
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('userList').addEventListener('change', function() {
+        const selectedUserId = this.value;
+        localStorage.setItem('receiverUserId', selectedUserId);
+    });
+
+    // Other initialization code can go here
+});
+
+async function sendMessage() {
+    // Retrieve receiverUserId from Local Storage
+    const receiverUserId = localStorage.getItem('receiverUserId');
+    if (!receiverUserId) {
+        console.error("No receiver selected or receiverUserId missing in Local Storage.");
+        return;
+    }
+
+    // Retrieve and parse the AES and MAC keys from Local Storage
+    const aesKeyJwk = JSON.parse(localStorage.getItem('aesKey'));
+    const macKeyJwk = JSON.parse(localStorage.getItem('macKey'));
+    if (!aesKeyJwk || !macKeyJwk) {
+        console.error("Encryption or MAC key missing in Local Storage.");
+        return;
+    }
+
+    // Import the keys back into CryptoKey objects
+    const aesKey = await window.crypto.subtle.importKey(
+        "jwk",
+        aesKeyJwk,
+        { name: "AES-GCM" },
+        false, // not extractable
+        ["encrypt"]
+    );
+    const macKey = await window.crypto.subtle.importKey(
+        "jwk",
+        macKeyJwk,
+        { name: "HMAC", hash: {name: "SHA-256"} },
+        false, // not extractable
+        ["sign"]
+    );
+
+    // Assume the message to encrypt is taken from an input field
+    const message = document.getElementById('messageInput').value;
+    if (!message) {
+        console.error("No message to send.");
+        return;
+    }
+
+    // Generate a unique IV for this message (implement generateIVForUser properly)
+    const iv = generateIVForUser(receiverUserId, 'send');
+
+    // Prepare additional authenticated data (AAD), typically includes metadata such as sender, receiver, and timestamp
+    const encoder = new TextEncoder();
+    const additionalData = encoder.encode(`CHAT_MSG_FROM_${myID}_TO_${receiverUserId}`);
+
+    try {
+        // Encrypt the message
+        const encryptedData = await window.crypto.subtle.encrypt(
+            {
+                name: "AES-GCM",
+                iv: iv,
+                additionalData: additionalData,
+            },
+            aesKey,
+            encoder.encode(message) // Convert message string to Uint8Array
+        );
+
+        // Sign the IV with HMAC to ensure its integrity
+        const hmacSignature = await window.crypto.subtle.sign(
+            "HMAC",
+            macKey,
+            iv // Ensure IV is in the right format (Uint8Array)
+        );
+
+        // Convert encrypted data and HMAC signature to a format suitable for sending, e.g., Base64
+        const encryptedDataB64 = arrayBufferToBase64(encryptedData);
+        const hmacSignatureB64 = arrayBufferToBase64(hmacSignature);
+
+        // Send the encrypted data to your server or the intended recipient
+        // Example: sendEncryptedMessage(receiverUserId, encryptedDataB64, hmacSignatureB64);
+        console.log("Encrypted message and HMAC signature sent to server");
+
+        // Clear the input field after sending
+        document.getElementById('messageInput').value = '';
+    } catch (err) {
+        console.error("Error encrypting message:", err);
+    }
+}
+
+// Helper functions for IV generation and Base64 conversions not shown here, ensure they are implemented
+
 
 async function decryptAndVerifyMessage(senderUserId, encryptedData, aesKey, macKey) {
     const decoder = new TextDecoder();
