@@ -174,6 +174,7 @@ async function deriveKeys(sharedSecret, salt, otherUserId, direction = 'to') {
         // Call the example function to start the process (adjust according to your actual flow)
         startKeyDerivation();
 
+
 // Placeholder function to fetch peer public key from server
 async function fetchPeerPublicKey(peerId) {
     // Implementation depends on your backend API
@@ -197,37 +198,131 @@ document.addEventListener('DOMContentLoaded', async function() {
 });
 
 
-// Send message function
-function sendMessage() {
-    if (peer_id == -1) return; // Exit if no peer selected
-    const message = document.getElementById('messageInput').value;
+// Assuming aesKey and macKey are already derived and available
+// ivCounters should be managed globally to track IVs for each chat session
+
+async function encryptAndSendMessage(receiverUserId, message, aesKey, macKey) {
+    const encoder = new TextEncoder();
+
+    // Generate a unique IV for this message based on a counter
+    const iv = generateIVForUser(receiverUserId, 'send');
+    const additionalData = encoder.encode(`CHAT_MSG_USER1to${receiverUserId}`);
+
+    // Encrypt the message
+    const ciphertext = await window.crypto.subtle.encrypt(
+        {
+            name: "AES-GCM",
+            iv: iv,
+            additionalData: additionalData,
+        },
+        aesKey,
+        encoder.encode(message)
+    );
+
+    // Protect the IV with HMAC
+    const hmac = await window.crypto.subtle.sign(
+        {
+            name: "HMAC",
+        },
+        macKey,
+        iv // It's important that the IV is exactly what you encrypted with, including its length
+    );
+
+    // Convert the ciphertext and HMAC into formats suitable for sending (e.g., Base64)
+    const ciphertextBase64 = arrayBufferToBase64(ciphertext);
+    const ivBase64 = arrayBufferToBase64(iv);
+    const hmacBase64 = arrayBufferToBase64(hmac);
+
+    // Prepare the message payload
     const payload = {
-        receiver_id: peer_id,
-        message_text: message,
+        receiverUserId,
+        ciphertext: ciphertextBase64,
+        iv: ivBase64,
+        hmac: hmacBase64,
+        additionalData: additionalData // You might choose to send this, depending on your needs
     };
 
-    fetch('/send_message', {
-        method: 'POST', // Specify the method
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-    })
-    .then(response => {
-        if (!response.ok) {
-            // If the server response is not OK, throw an error
-            throw new Error('Network response was not ok');
-        }
-        return response.json(); // Parse JSON response from the server
-    })
-    .then(data => {
-        console.log('Message sent:', data); // Log success message
-        document.getElementById('messageInput').value = ''; // Clear the input after sending
-    })
-    .catch(error => {
-        console.error('Error sending message:', error); // Log any errors
-    });
+    // Placeholder for sending the payload to the receiver
+    console.log("Sending encrypted message payload:", payload);
+    // Here, you would typically make a fetch() call or use WebSockets to send 'payload' to your server
 }
+
+async function decryptAndVerifyMessage(senderUserId, encryptedData, aesKey, macKey) {
+    const decoder = new TextDecoder();
+    const { ciphertext, iv, hmac, additionalData } = encryptedData; // Assuming these are provided in Base64 format
+
+    // Convert from Base64 to ArrayBuffer
+    const ciphertextArrayBuffer = base64ToArrayBuffer(ciphertext);
+    const ivArrayBuffer = base64ToArrayBuffer(iv);
+    const hmacArrayBuffer = base64ToArrayBuffer(hmac);
+
+    // First, verify the HMAC to ensure the IV has not been tampered with
+    const isValidHmac = await window.crypto.subtle.verify(
+        {
+            name: "HMAC",
+        },
+        macKey,
+        hmacArrayBuffer, // The received HMAC
+        ivArrayBuffer // The received IV
+    );
+
+    if (!isValidHmac) {
+        throw new Error("HMAC verification failed: IV has been tampered with or message integrity compromised.");
+    }
+
+    // Check IV for replay attacks by ensuring it's greater than the last known IV for this sender
+    const lastKnownIvCounter = ivCounters[senderUserId]?.receive || 0;
+    const receivedIvCounter = new DataView(ivArrayBuffer.slice(8)).getUint32(0, false); // Assuming counter is stored in the last 4 bytes
+
+    if (receivedIvCounter <= lastKnownIvCounter) {
+        throw new Error("Replay attack detected: received IV is not greater than the last known IV.");
+    }
+    // Update the last known IV counter for this sender
+    if (!ivCounters[senderUserId]) ivCounters[senderUserId] = {};
+    ivCounters[senderUserId].receive = receivedIvCounter;
+
+    // Decrypt the message
+    const decrypted = await window.crypto.subtle.decrypt(
+        {
+            name: "AES-GCM",
+            iv: ivArrayBuffer,
+            additionalData: additionalData ? base64ToArrayBuffer(additionalData) : undefined,
+        },
+        aesKey,
+        ciphertextArrayBuffer
+    );
+
+    // Convert decrypted message back to a string
+    const decryptedMessage = decoder.decode(decrypted);
+
+    return {
+        message: decryptedMessage,
+        senderUserId
+    };
+}
+
+// Helper function to convert Base64 to ArrayBuffer
+function base64ToArrayBuffer(base64) {
+    const binaryString = window.atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes.buffer;
+}
+
+// Helper function to convert ArrayBuffer to Base64
+function arrayBufferToBase64(buffer) {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return window.btoa(binary);
+}
+
 
 // Refresh Keys function placeholder
 function refreshKeys() {
