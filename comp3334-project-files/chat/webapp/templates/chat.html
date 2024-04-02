@@ -178,11 +178,6 @@ async function deriveKeys(sharedSecret, salt, peer_id, direction = 'to') {
         startKeyDerivation();
         
 
-// Placeholder function to fetch peer public key from server
-async function fetchPeerPublicKey(peerId) {
-    // Implementation depends on your backend API
-    // Return the public key in a format suitable for importKey
-}
 
 
 // Function to generate a unique IV based on a counter
@@ -416,7 +411,7 @@ $(document).ready(function() {
 // Handle user selection change
 document.getElementById('userList').addEventListener('change', async(event) => {
     peer_id = parseInt(event.target.value, 10); // Convert selected peer_id to integer
-    console.log("peer changed:",peer_id);
+    console.log("peer changed:", peer_id);
     try {
         const response = await fetch(`/get_public_key/${peer_id}`);
         if (!response.ok) {
@@ -425,8 +420,10 @@ document.getElementById('userList').addEventListener('change', async(event) => {
         const data = await response.json();
         console.log('Public Key:', data.public_key);
 
-        // You can now use the fetched public key (data.public_key) as needed
-        // For example, you might store it in the `sharedSecrets` object or use it directly for setting up encryption
+        // Store the fetched public key in localStorage
+        localStorage.setItem(`publicKey_${peer_id}`, data.public_key);
+        
+        // Proceed to setup encryption or any other necessary steps
     } catch (error) {
         console.error('Error fetching public key:', error);
     }
@@ -435,6 +432,7 @@ document.getElementById('userList').addEventListener('change', async(event) => {
     lastMessageId = 0;
     fetchMessages(); // Fetch messages for the new selection
 });
+
 
 // Clear chat box
 function clearChatBox() {
