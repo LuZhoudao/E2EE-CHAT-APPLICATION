@@ -113,7 +113,8 @@ async function sendPublicKeyToServer(publicKey) {
     }
 }
 
-async function deriveKeys(sharedSecret, salt, otherUserId, direction = 'to') {
+async function deriveKeys(sharedSecret, salt, peer_id, direction = 'to') {
+            console.log("derive keys!!!!");
             const sharedSecretKey = await window.crypto.subtle.importKey(
                 "raw",
                 sharedSecret,
@@ -123,7 +124,7 @@ async function deriveKeys(sharedSecret, salt, otherUserId, direction = 'to') {
             );
 
             // Define HKDF parameters for encryption and MAC keys
-            const baseInfo = `CHAT_KEY_USER${direction}${otherUserId}`;
+            const baseInfo = `CHAT_KEY_USER${direction}${peer_id}`;
             const encryptionInfo = `${baseInfo}_ENCRYPTION`;
             const macInfo = `${baseInfo}_MAC`;
 
@@ -157,7 +158,7 @@ async function deriveKeys(sharedSecret, salt, otherUserId, direction = 'to') {
 
             console.log("Derived AES Key:", aesKey);
             console.log("Derived MAC Key:", macKey);
-
+            
             return { aesKey, macKey };
         }
 
@@ -165,55 +166,22 @@ async function deriveKeys(sharedSecret, salt, otherUserId, direction = 'to') {
         async function startKeyDerivation() {
             const sharedSecret = new Uint8Array(48); // Assume this is obtained from ECDH
             const salt = window.crypto.getRandomValues(new Uint8Array(16)); // Generate a unique salt
-            const otherUserId = "2"; // Example user ID of the other party
-            const { aesKey, macKey } = await deriveKeys(sharedSecret, salt, otherUserId, 'to');
+        
+            const { aesKey, macKey } = await deriveKeys(sharedSecret, salt, peer_id, 'to');
+            storeKeys(aesKey,macKey,peer_id);
 
             // Now you can use aesKey and macKey for encryption and MAC
         }
 
         // Call the example function to start the process (adjust according to your actual flow)
         startKeyDerivation();
-
+        
 
 // Placeholder function to fetch peer public key from server
 async function fetchPeerPublicKey(peerId) {
     // Implementation depends on your backend API
     // Return the public key in a format suitable for importKey
 }
-
-document.addEventListener('DOMContentLoaded', async function() {
-    try {
-        await generateAndSendECDHPublicKey();
-    } catch (error) {
-        console.error("Error in key generation or sending:", error);
-    }
-
-    document.getElementById('messageInput').addEventListener('keydown', async function(e) {
-        if (e.ctrlKey && e.key === 'Enter') {
-            const messageText = document.getElementById('messageInput').value;
-            if (messageText) {
-                // Simulate encrypting and sending the message
-                try {
-                    // Assuming aesKey and macKey are already derived and available
-                    const {aesKey, hmacKey} = await deriveKeys(/* parameters needed, such as sharedSecret, salt, etc. */);
-                    const encryptedData = await encryptMessage(messageText, aesKey, hmacKey);
-                    console.log("Encrypted data:", encryptedData);
-
-                    // Simulate receiving and decrypting the message
-                    const decryptedMessage = await decryptAndVerifyMessage(encryptedData, aesKey, hmacKey);
-                    console.log("Decrypted message:", decryptedMessage);
-
-                    // Clear the message input field after processing
-                    document.getElementById('messageInput').value = '';
-                } catch (encryptionError) {
-                    console.error("Error encrypting or sending message:", encryptionError);
-                }
-            }
-        }
-    });
-
-    // Additional setup here
-});
 
 
 // Global object to manage IVs for each peer
@@ -237,6 +205,7 @@ function generateIVForUser(userId, direction) {
 // ivCounters should be managed globally to track IVs for each chat session
 
 async function storeKeys(aesKey, macKey, receiverUserId) {
+    console.log("storekeys!!!!!!");
     // Export the AES-GCM encryption key
     const aesKeyExported = await window.crypto.subtle.exportKey("jwk", aesKey);
     // Export the HMAC key
@@ -451,6 +420,7 @@ $(document).ready(function() {
 // Handle user selection change
 document.getElementById('userList').addEventListener('change', event => {
     peer_id = parseInt(event.target.value, 10); // Convert selected peer_id to integer
+    console.log("peer changed:",peer_id);
     clearChatBox();
     lastMessageId = 0;
     fetchMessages(); // Fetch messages for the new selection
