@@ -184,11 +184,6 @@ async function fetchPeerPublicKey(peerId) {
 }
 
 
-// Global object to manage IVs for each peer
-const ivCounters = {
-    // Example: "user2": { send: 0, receive: 0 }
-};
-
 // Function to generate a unique IV based on a counter
 function generateIVForUser(userId, direction) {
     if (!ivCounters[userId]) {
@@ -204,7 +199,7 @@ function generateIVForUser(userId, direction) {
 // Assuming aesKey and macKey are already derived and available
 // ivCounters should be managed globally to track IVs for each chat session
 
-async function storeKeys(aesKey, macKey, receiverUserId) {
+async function storeKeys(aesKey, macKey, peer_id) {
     console.log("storekeys!!!!!!");
     // Export the AES-GCM encryption key
     const aesKeyExported = await window.crypto.subtle.exportKey("jwk", aesKey);
@@ -215,24 +210,24 @@ async function storeKeys(aesKey, macKey, receiverUserId) {
     localStorage.setItem('aesKey', JSON.stringify(aesKeyExported));
     localStorage.setItem('macKey', JSON.stringify(macKeyExported));
 
-    // Store receiverUserId
-    localStorage.setItem('receiverUserId', receiverUserId);
+    // Store peer_id
+    localStorage.setItem('peer_id', peer_id);
 }
 
 document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('userList').addEventListener('change', function() {
         const selectedUserId = this.value;
-        localStorage.setItem('receiverUserId', selectedUserId);
+        localStorage.setItem('peer_id', selectedUserId);
     });
 
     // Other initialization code can go here
 });
 
 async function sendMessage() {
-    // Retrieve receiverUserId from Local Storage
-    const receiverUserId = localStorage.getItem('receiverUserId');
-    if (!receiverUserId) {
-        console.error("No receiver selected or receiverUserId missing in Local Storage.");
+    // Retrieve peer_id from Local Storage
+    const peer_id = localStorage.getItem('peer_id');
+    if (!peer_id) {
+        console.error("No receiver selected or peer_id missing in Local Storage.");
         return;
     }
 
@@ -268,11 +263,11 @@ async function sendMessage() {
     }
 
     // Generate a unique IV for this message (implement generateIVForUser properly)
-    const iv = generateIVForUser(receiverUserId, 'send');
+    const iv = generateIVForUser(peer_id, 'send');
 
     // Prepare additional authenticated data (AAD), typically includes metadata such as sender, receiver, and timestamp
     const encoder = new TextEncoder();
-    const additionalData = encoder.encode(`CHAT_MSG_FROM_${myID}_TO_${receiverUserId}`);
+    const additionalData = encoder.encode(`CHAT_MSG_FROM_${myID}_TO_${peer_id}`);
 
     try {
         // Encrypt the message
@@ -298,7 +293,7 @@ async function sendMessage() {
         const hmacSignatureB64 = arrayBufferToBase64(hmacSignature);
 
         // Send the encrypted data to your server or the intended recipient
-        // Example: sendEncryptedMessage(receiverUserId, encryptedDataB64, hmacSignatureB64);
+        // Example: sendEncryptedMessage(peer_id, encryptedDataB64, hmacSignatureB64);
         console.log("Encrypted message and HMAC signature sent to server");
 
         // Clear the input field after sending
