@@ -162,6 +162,7 @@ async function deriveKeys(sharedSecret, salt, peer_id, direction = 'to') {
             return { aesKey, macKey };
         }
 
+        
         // Example usage
         async function startKeyDerivation() {
             const sharedSecret = new Uint8Array(48); // Assume this is obtained from ECDH
@@ -413,9 +414,23 @@ $(document).ready(function() {
 });
 
 // Handle user selection change
-document.getElementById('userList').addEventListener('change', event => {
+document.getElementById('userList').addEventListener('change', async(event) => {
     peer_id = parseInt(event.target.value, 10); // Convert selected peer_id to integer
     console.log("peer changed:",peer_id);
+    try {
+        const response = await fetch(`/get_public_key/${peer_id}`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch public key');
+        }
+        const data = await response.json();
+        console.log('Public Key:', data.public_key);
+
+        // You can now use the fetched public key (data.public_key) as needed
+        // For example, you might store it in the `sharedSecrets` object or use it directly for setting up encryption
+    } catch (error) {
+        console.error('Error fetching public key:', error);
+    }
+
     clearChatBox();
     lastMessageId = 0;
     fetchMessages(); // Fetch messages for the new selection

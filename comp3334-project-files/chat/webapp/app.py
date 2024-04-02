@@ -6,7 +6,6 @@ from flask_bcrypt import Bcrypt
 from Crypto.Cipher import AES
 from helpers import AESencrypt, AESdecrypt, get_totp_uri, verify_totp
 from base64 import b64encode, b64decode
-from key_exchange import setup_key_exchange_routes, update_public_key
 import os
 import base64
 from io import BytesIO
@@ -239,6 +238,7 @@ def handle_public_key_submission():
 
 @app.route('/get_public_key/<user_id>', methods=['GET'])
 def get_public_key(user_id):
+    
     # Retrieve a user's public key
     cur = mysql.connection.cursor()
     cur.execute("SELECT public_key FROM users WHERE user_id=%s", [user_id])
@@ -324,8 +324,6 @@ def verify_totp():
     return render_template('verify_totp.html')
 
 bcrypt = Bcrypt(app)
-#setup_key_exchange_routes(app)
-
 if __name__ == '__main__':
     app.run(debug=True)
 
