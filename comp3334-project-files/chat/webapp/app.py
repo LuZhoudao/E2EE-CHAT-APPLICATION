@@ -93,7 +93,7 @@ def fetch_messages():
         last_message_id = request.args.get('last_message_id', 0)
 
         # Fetch messages from the database
-        # This is a placeholder for your actual database query logic
+
         messages = fetch_messages_from_db(peer_id, last_message_id)
 
         # Return the messages as JSON
@@ -115,10 +115,10 @@ def fetch_messages_from_db(peer_id, last_message_id):
     """
     values = (session['user_id'], peer_id, peer_id, session['user_id'], last_message_id)
     
-    cursor = mysql.connection.cursor()
-    cursor.execute(query, values)
-    messages = cursor.fetchall()
-    cursor.close()
+    cur = mysql.connection.cursor()
+    cur.execute(query, values)
+    messages = cur.fetchall()
+    #cur.close()
     
     return [{
         'message_id': msg[0],
@@ -168,7 +168,6 @@ def save_encrypted_message(sender_id, receiver_id, ciphertext, iv, hmac):
     cur = mysql.connection.cursor()
     cur.execute(query, values)
     mysql.connection.commit()
-    cur.close()
 
 
 @app.route('/erase_chat', methods=['POST'])
