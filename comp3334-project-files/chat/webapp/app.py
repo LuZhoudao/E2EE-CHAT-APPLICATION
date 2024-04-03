@@ -54,29 +54,6 @@ def users():
     filtered_users = [[user[0], user[1]] for user in user_data if user[0] != session['user_id']]
     return {'users': filtered_users}
 
-@app.route('/fetch_messages')
-def fetch_messages():
-    if 'user_id' not in session:
-        abort(403)
-
-    last_message_id = request.args.get('last_message_id', 0, type=int)
-    peer_id = request.args.get('peer_id', type=int)
-    
-    cur = mysql.connection.cursor()
-    query = """SELECT message_id,sender_id,receiver_id,message_text FROM messages 
-               WHERE message_id > %s AND 
-               ((sender_id = %s AND receiver_id = %s) OR (sender_id = %s AND receiver_id = %s))
-               ORDER BY message_id ASC"""
-    cur.execute(query, (last_message_id, peer_id, session['user_id'], session['user_id'], peer_id))
-
-    # Fetch the column names
-    column_names = [desc[0] for desc in cur.description]
-    # Fetch all rows, and create a list of dictionaries, each representing a message
-    messages = [dict(zip(column_names, row)) for row in cur.fetchall()]
-
-    cur.close()
-    return jsonify({'messages': messages})
-
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -109,30 +86,90 @@ def recover_account():
     
     pass
 
+@app.route('/fetch_messages')
+def fetch_messages():
+    try:
+        peer_id = request.args.get('peer_id')
+        last_message_id = request.args.get('last_message_id', 0)
 
+        # Fetch messages from the database
+        # This is a placeholder for your actual database query logic
+        messages = fetch_messages_from_db(peer_id, last_message_id)
 
-@app.route('/send_message', methods=['POST'])
-def send_message():
-    if not request.json or not 'message_text' in request.json:
-        abort(400)  # Bad request if the request doesn't contain JSON or lacks 'message_text'
-    if 'user_id' not in session:
-        abort(403)
+        # Return the messages as JSON
+        return jsonify({'messages': messages}), 200
+    except Exception as e:
+        # Log the exception details for debugging
+        print(f"Error fetching messages: {e}")
+        # Return a JSON error response
+        return jsonify({'error': 'Internal Server Error'}), 500
 
-    # Extract data from the request
-    sender_id = session['user_id']
-    receiver_id = request.json['receiver_id']
-    message_text = request.json['message_text']
-
-    # Assuming you have a function to save messages
-    save_message(sender_id, receiver_id, message_text)
+def fetch_messages_from_db(peer_id, last_message_id):
+    query = """
+    SELECT message_id, sender_id, receiver_id, ciphertext, iv, hmac, created_at 
+    FROM messages 
+    WHERE 
+        (sender_id = %s AND receiver_id = %s OR sender_id = %s AND receiver_id = %s) 
+        AND message_id > %s
+    ORDER BY message_id ASC
+    """
+    values = (session['user_id'], peer_id, peer_id, session['user_id'], last_message_id)
     
-    return jsonify({'status': 'success', 'message': 'Message sent'}), 200
+    cursor = mysql.connection.cursor()
+    cursor.execute(query, values)
+    messages = cursor.fetchall()
+    cursor.close()
+    
+    return [{
+        'message_id': msg[0],
+        'sender_id': msg[1],
+        'receiver_id': msg[2],
+        'ciphertext': msg[3],
+        'iv': msg[4].hex(),  # Assuming binary data
+        'hmac': msg[5].hex(),  # Assuming binary data
+        'created_at': msg[6].strftime("%Y-%m-%d %H:%M:%S"),
+    } for msg in messages]
 
-def save_message(sender, receiver, message):
+
+
+@app.route('/api/send_message', methods=['POST'])
+def send_message():
+    # Ensure the request has the necessary encrypted components
+    if not request.json or 'ciphertext' not in request.json or 'iv' not in request.json or 'hmac' not in request.json:
+        abort(400)  # Bad request if missing any encryption components
+
+    if 'user_id' not in session:
+        abort(403)  # Forbidden if the user isn't logged in
+
+    # Extract encrypted data from the request
+    sender_id = session['user_id']
+    receiver_id = request.json['peer_id'] 
+    ciphertext = request.json['ciphertext']
+    iv = request.json['iv']
+    hmac = request.json['hmac']
+
+
+    # simply prints the received data
+    print(f"Received encrypted message from {sender_id} to {receiver_id}")
+    print(f"Ciphertext: {ciphertext}")
+    print(f"IV: {iv}")
+    print(f"HMAC: {hmac}")
+    
+    save_encrypted_message(sender_id, receiver_id, ciphertext, iv, hmac)
+    
+    return jsonify({'status': 'success', 'message': 'Encrypted message sent'}), 200
+
+def save_encrypted_message(sender_id, receiver_id, ciphertext, iv, hmac):
+    query = '''INSERT INTO messages 
+               (sender_id, receiver_id, ciphertext, iv, hmac) 
+               VALUES (%s, %s, %s, %s, %s)'''
+    values = (sender_id, receiver_id, ciphertext, iv, hmac)
+    
     cur = mysql.connection.cursor()
-    cur.execute("INSERT INTO messages (sender_id, receiver_id, message_text) VALUES (%s, %s, %s)", (sender, receiver, message,))
+    cur.execute(query, values)
     mysql.connection.commit()
     cur.close()
+
 
 @app.route('/erase_chat', methods=['POST'])
 def erase_chat():
