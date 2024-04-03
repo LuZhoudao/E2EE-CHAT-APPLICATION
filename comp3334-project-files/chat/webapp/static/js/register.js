@@ -1,18 +1,27 @@
 
-async function generateAndSetPublicKey() {
+async function agreeSharedSecretKey() {
     const keyPair = await window.crypto.subtle.generateKey(
         {
             name: "ECDH",
             namedCurve: "P-384"
         },
         true, 
-        ["deriveKey", "deriveBits"] // can only be used to derive bits or keys
+        ["deriveKey"] // can only be used to derive bits or keys
     );
 
     const exportedPublicKey = await window.crypto.subtle.exportKey(
         "spki",
         keyPair.publicKey
     );
+    // Export the private key in PKCS8 format
+    const exportedPrivateKey = await window.crypto.subtle.exportKey(
+        "pkcs8",
+        keyPair.privateKey
+    );
+    // Convert the exported private key to a Base64 URL string
+    const exportedPrivateKeyAsBase64 = window.btoa(String.fromCharCode(...new Uint8Array(exportedPrivateKey)));
+    // Save the private key to localStorage
+    localStorage.setItem('privateKey', exportedPrivateKeyAsBase64);
 
     // Convert the exported key to a Base64 URL string to send to the server
     const exportedAsBase64 = window.btoa(String.fromCharCode(...new Uint8Array(exportedPublicKey)));
@@ -72,6 +81,6 @@ document.getElementById('registrationForm').addEventListener('submit', function(
 
     // Server feels safe for SQL Injection and XSS because of prepared statements??
     
-    generateAndSetPublicKey();
+    agreeSharedSecretKey();
 
 });

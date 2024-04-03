@@ -109,9 +109,6 @@ def recover_account():
     
     pass
 
-@app.route('/ecdh')
-def ecdh_demo():
-    return render_template('ecdh.html')
 
 
 @app.route('/send_message', methods=['POST'])
