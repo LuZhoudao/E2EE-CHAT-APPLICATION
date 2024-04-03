@@ -118,7 +118,7 @@ def fetch_messages_from_db(peer_id, last_message_id):
     cur = mysql.connection.cursor()
     cur.execute(query, values)
     messages = cur.fetchall()
-    #cur.close()
+    cur.close()
     
     return [{
         'message_id': msg[0],

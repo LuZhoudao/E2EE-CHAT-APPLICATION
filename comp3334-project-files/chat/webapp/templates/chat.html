@@ -290,62 +290,6 @@ async function sendMessage() {
 }
 
 
-// Helper functions for IV generation and Base64 conversions not shown here, ensure they are implemented
-
-
-async function decryptAndVerifyMessage(senderUserId, encryptedData, aesKey, macKey) {
-    const decoder = new TextDecoder();
-    const { ciphertext, iv, hmac, additionalData } = encryptedData; // Assuming these are provided in Base64 format
-
-    // Convert from Base64 to ArrayBuffer
-    const ciphertextArrayBuffer = base64ToArrayBuffer(ciphertext);
-    const ivArrayBuffer = base64ToArrayBuffer(iv);
-    const hmacArrayBuffer = base64ToArrayBuffer(hmac);
-
-    // First, verify the HMAC to ensure the IV has not been tampered with
-    const isValidHmac = await window.crypto.subtle.verify(
-        {
-            name: "HMAC",
-        },
-        macKey,
-        hmacArrayBuffer, // The received HMAC
-        ivArrayBuffer // The received IV
-    );
-
-    if (!isValidHmac) {
-        throw new Error("HMAC verification failed: IV has been tampered with or message integrity compromised.");
-    }
-
-    // Check IV for replay attacks by ensuring it's greater than the last known IV for this sender
-    const lastKnownIvCounter = ivCounters[senderUserId]?.receive || 0;
-    const receivedIvCounter = new DataView(ivArrayBuffer.slice(8)).getUint32(0, false); // Assuming counter is stored in the last 4 bytes
-
-    if (receivedIvCounter <= lastKnownIvCounter) {
-        throw new Error("Replay attack detected: received IV is not greater than the last known IV.");
-    }
-    // Update the last known IV counter for this sender
-    if (!ivCounters[senderUserId]) ivCounters[senderUserId] = {};
-    ivCounters[senderUserId].receive = receivedIvCounter;
-
-    // Decrypt the message
-    const decrypted = await window.crypto.subtle.decrypt(
-        {
-            name: "AES-GCM",
-            iv: ivArrayBuffer,
-            additionalData: additionalData ? base64ToArrayBuffer(additionalData) : undefined,
-        },
-        aesKey,
-        ciphertextArrayBuffer
-    );
-
-    // Convert decrypted message back to a string
-    const decryptedMessage = decoder.decode(decrypted);
-
-    return {
-        message: decryptedMessage,
-        senderUserId
-    };
-}
 
 // Helper function to convert Base64 to ArrayBuffer
 function base64ToArrayBuffer(base64) {
