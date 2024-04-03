@@ -447,27 +447,55 @@ document.getElementById('userList').addEventListener('change', async(event) => {
 });
 
 async function deriveSharedSecret() {
-    // Retrieve and decode the keys from Base64 to ArrayBuffer
+    // Retrieve the Base64-encoded keys from localStorage
     const privateKeyBase64 = localStorage.getItem('privateKey');
     const peerPublicKeyBase64 = localStorage.getItem(`publicKey_${peer_id}`);
+
+    // Decode the Base64 strings to ArrayBuffers
     const privateKeyArrayBuffer = base64ToArrayBuffer(privateKeyBase64);
-    console.log(privateKeyArrayBuffer)
     const peerPublicKeyArrayBuffer = base64ToArrayBuffer(peerPublicKeyBase64);
-    console.log(peerPublicKeyArrayBuffer)
-    // Import the user's private key
-    return window.crypto.subtle.deriveKey(
-    {
-      name: "ECDH",
-      public: peerPublicKeyArrayBuffer,
-    },
-    privateKeyArrayBuffer,
-    {
-      name: "AES-GCM",
-      length: 256,
-    },
-    false,
-    ["encrypt", "decrypt"],
-  );
+
+    // Import the private key
+    const privateKey = await window.crypto.subtle.importKey(
+        "pkcs8",
+        privateKeyArrayBuffer,
+        {
+            name: "ECDH",
+            namedCurve: "P-384"
+        },
+        false, 
+        ["deriveKey", "deriveBits"] 
+    );
+
+    // Import the peer's public key
+    const peerPublicKey = await window.crypto.subtle.importKey(
+        "spki",
+        peerPublicKeyArrayBuffer,
+        {
+            name: "ECDH",
+            namedCurve: "P-384" 
+        },
+        false, 
+        [] 
+    );
+
+    // Derive the shared secret
+    const sharedSecret = await window.crypto.subtle.deriveKey(
+        {
+            name: "ECDH",
+            public: peerPublicKey 
+        },
+        privateKey, 
+        {
+            name: "AES-GCM",
+            length: 256, 
+        },
+        false, 
+        ["encrypt", "decrypt"] 
+    );
+
+    console.log("Derived shared secret:", sharedSecret);
+    return sharedSecret;
 }
 
 
