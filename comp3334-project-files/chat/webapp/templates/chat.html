@@ -129,69 +129,63 @@ checkAndGenerateKeys().catch(console.error);
 
 
 async function deriveKeys(sharedSecret, salt, peer_id, direction = 'to') {
-            console.log("derive keys!!!!");
-            const sharedSecretKey = await window.crypto.subtle.importKey(
-                "raw",
-                sharedSecret,
-                { name: "HKDF" },
-                false,
-                ["deriveKey"]
-            );
+    console.log("Deriving keys");
 
-            // Define HKDF parameters for encryption and MAC keys
-            const baseInfo = `CHAT_KEY_USER${direction}${peer_id}`;
-            const encryptionInfo = `${baseInfo}_ENCRYPTION`;
-            const macInfo = `${baseInfo}_MAC`;
+    // Define HKDF parameters for encryption and MAC keys
+    const baseInfo = `CHAT_KEY_USER${direction}${peer_id}`;
+    const encryptionInfo = `${baseInfo}_ENCRYPTION`;
+    const macInfo = `${baseInfo}_MAC`;
 
-            // Derive the AES-GCM encryption key
-            const aesKey = await window.crypto.subtle.deriveKey(
-                {
-                    name: "HKDF",
-                    salt: salt,
-                    info: new TextEncoder().encode(encryptionInfo),
-                    hash: "SHA-256"
-                },
-                sharedSecretKey,
-                { name: "AES-GCM", length: 256 },
-                true,
-                ["encrypt", "decrypt"]
-            );
+    // Directly use sharedSecret with deriveKey for HKDF
+    const aesKey = await window.crypto.subtle.deriveKey(
+        {
+            name: "HKDF",
+            salt: salt,
+            info: new TextEncoder().encode(encryptionInfo),
+            hash: "SHA-256"
+        },
+        sharedSecret, // Directly use sharedSecret here
+        { name: "AES-GCM", length: 256 },
+        true, // whether the key is extractable (i.e., can be exported)
+        ["encrypt", "decrypt"]
+    );
 
-            // Derive the HMAC key
-            const macKey = await window.crypto.subtle.deriveKey(
-                {
-                    name: "HKDF",
-                    salt: salt,
-                    info: new TextEncoder().encode(macInfo),
-                    hash: "SHA-256"
-                },
-                sharedSecretKey,
-                { name: "HMAC", hash: "SHA-256" },
-                true,
-                ["sign", "verify"]
-            );
+    // Similarly, derive the HMAC key
+    const macKey = await window.crypto.subtle.deriveKey(
+        {
+            name: "HKDF",
+            salt: salt,
+            info: new TextEncoder().encode(macInfo),
+            hash: "SHA-256"
+        },
+        sharedSecret, // And also here
+        { name: "HMAC", hash: "SHA-256" },
+        true, // whether the key is extractable
+        ["sign", "verify"]
+    );
 
-            console.log("Derived AES Key:", aesKey);
-            console.log("Derived MAC Key:", macKey);
-            
-            return { aesKey, macKey };
-        }
+    console.log("Derived AES Key:", aesKey);
+    console.log("Derived MAC Key:", macKey);
+
+    return { aesKey, macKey };
+}
+
 
         
         // Example usage
         async function startKeyDerivation() {
             
-            const sharedSecret = new Uint8Array(48); // Assume this is obtained from ECDH
+            //const sharedSecret = deriveSharedSecret(); // Assume this is obtained from ECDH
             const salt = window.crypto.getRandomValues(new Uint8Array(16)); // Generate a unique salt
         
-            const { aesKey, macKey } = await deriveKeys(sharedSecret, salt, peer_id, 'to');
+            const { aesKey, macKey } = await deriveKeys(deriveSharedSecret(), salt, peer_id, 'to');
             storeKeys(aesKey,macKey,peer_id);
 
             // Now you can use aesKey and macKey for encryption and MAC
         }
 
         // Call the example function to start the process (adjust according to your actual flow)
-        startKeyDerivation();
+    
         
 
 
@@ -440,6 +434,8 @@ document.getElementById('userList').addEventListener('change', async(event) => {
         // Store the fetched public key in localStorage
         localStorage.setItem(`publicKey_${peer_id}`, data.public_key);
         
+        startKeyDerivation();
+
         // Proceed to setup encryption or any other necessary steps
     } catch (error) {
         console.error('Error fetching public key:', error);
@@ -455,42 +451,23 @@ async function deriveSharedSecret() {
     const privateKeyBase64 = localStorage.getItem('privateKey');
     const peerPublicKeyBase64 = localStorage.getItem(`publicKey_${peer_id}`);
     const privateKeyArrayBuffer = base64ToArrayBuffer(privateKeyBase64);
+    console.log(privateKeyArrayBuffer)
     const peerPublicKeyArrayBuffer = base64ToArrayBuffer(peerPublicKeyBase64);
-
+    console.log(peerPublicKeyArrayBuffer)
     // Import the user's private key
-    const privateKey = await window.crypto.subtle.importKey(
-        "pkcs8",
-        privateKeyArrayBuffer,
-        { name: "ECDH", namedCurve: "P-384" },
-        true,
-        ["deriveKey", "deriveBits"]
-    );
-
-    // Import the peer's public key
-    const peerPublicKey = await window.crypto.subtle.importKey(
-        "spki",
-        peerPublicKeyArrayBuffer,
-        { name: "ECDH", namedCurve: "P-384" },
-        true,
-        []
-    );
-
-    // Derive the shared secret key
-    const secretKey = await window.crypto.subtle.deriveKey(
-        { name: "ECDH", public: peerPublicKey },
-        privateKey,
-        { name: "AES-GCM", length: 256 },
-        false,
-        ["encrypt", "decrypt"]
-    );
-
-    console.log("Derived secret key: ", secretKey);
-    console.log("Key type: ", secretKey.type); // Should log "secret"
-    console.log("Key algorithm name: ", secretKey.algorithm.name); // Should log "AES-GCM"
-    console.log("Key algorithm length: ", secretKey.algorithm.length); // Should log 256
-    console.log("Key usages: ", secretKey.usages); // Should log ["encrypt", "decrypt"]
-
-    return secretKey;
+    return window.crypto.subtle.deriveKey(
+    {
+      name: "ECDH",
+      public: peerPublicKeyArrayBuffer,
+    },
+    privateKeyArrayBuffer,
+    {
+      name: "AES-GCM",
+      length: 256,
+    },
+    false,
+    ["encrypt", "decrypt"],
+  );
 }
 
 
