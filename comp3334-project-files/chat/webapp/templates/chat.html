@@ -128,15 +128,24 @@ checkAndGenerateKeys().catch(console.error);
 
 
 
-async function deriveKeys(sharedSecret, salt, peer_id, direction = 'to') {
-    console.log("Deriving keys");
+async function deriveKeys(sharedSecretBits, salt, peer_id, direction = 'to') {
+    console.log("Deriving keys!!!");
 
-    // Define HKDF parameters for encryption and MAC keys
+    // Import the raw shared secret bits as a CryptoKey for use with HKDF
+    const sharedSecretKey = await window.crypto.subtle.importKey(
+        "raw",
+        sharedSecretBits,
+        { name: "HKDF" },
+        false,
+        ["deriveKey"]
+    );
+
+    // Define HKDF parameters
     const baseInfo = `CHAT_KEY_USER${direction}${peer_id}`;
     const encryptionInfo = `${baseInfo}_ENCRYPTION`;
     const macInfo = `${baseInfo}_MAC`;
 
-    // Directly use sharedSecret with deriveKey for HKDF
+    // Derive the AES-GCM encryption key
     const aesKey = await window.crypto.subtle.deriveKey(
         {
             name: "HKDF",
@@ -144,13 +153,12 @@ async function deriveKeys(sharedSecret, salt, peer_id, direction = 'to') {
             info: new TextEncoder().encode(encryptionInfo),
             hash: "SHA-256"
         },
-        sharedSecret, // Directly use sharedSecret here
+        sharedSecretKey, // Use the imported shared secret key here
         { name: "AES-GCM", length: 256 },
-        true, // whether the key is extractable (i.e., can be exported)
-        ["encrypt", "decrypt"]
+        true, ["encrypt", "decrypt"]
     );
 
-    // Similarly, derive the HMAC key
+    // Derive the HMAC key
     const macKey = await window.crypto.subtle.deriveKey(
         {
             name: "HKDF",
@@ -158,10 +166,9 @@ async function deriveKeys(sharedSecret, salt, peer_id, direction = 'to') {
             info: new TextEncoder().encode(macInfo),
             hash: "SHA-256"
         },
-        sharedSecret, // And also here
+        sharedSecretKey, // And also here
         { name: "HMAC", hash: "SHA-256" },
-        true, // whether the key is extractable
-        ["sign", "verify"]
+        true, ["sign", "verify"]
     );
 
     console.log("Derived AES Key:", aesKey);
@@ -175,17 +182,16 @@ async function deriveKeys(sharedSecret, salt, peer_id, direction = 'to') {
         // Example usage
         async function startKeyDerivation() {
             
-            //const sharedSecret = deriveSharedSecret(); // Assume this is obtained from ECDH
+            const sharedSecret = await deriveSharedSecret(); 
             const salt = window.crypto.getRandomValues(new Uint8Array(16)); // Generate a unique salt
         
-            const { aesKey, macKey } = await deriveKeys(deriveSharedSecret(), salt, peer_id, 'to');
+            const { aesKey, macKey } = await deriveKeys(sharedSecret, salt, peer_id, 'to');
             storeKeys(aesKey,macKey,peer_id);
 
-            // Now you can use aesKey and macKey for encryption and MAC
+           
         }
 
-        // Call the example function to start the process (adjust according to your actual flow)
-    
+       
         
 
 
@@ -493,9 +499,21 @@ async function deriveSharedSecret() {
         false, 
         ["encrypt", "decrypt"] 
     );
+        //derive it as raw 
+    const bits = await window.crypto.subtle.deriveBits(
+        {
+            name: "ECDH",
+            public: peerPublicKey 
+        },
+        privateKey, 
+        256
+    );
 
     console.log("Derived shared secret:", sharedSecret);
-    return sharedSecret;
+    console.log("Derived bits: ", bits);
+    return bits;
+    //return sharedSecret;
+    
 }
 
 
