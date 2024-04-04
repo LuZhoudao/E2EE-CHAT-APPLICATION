@@ -41,7 +41,7 @@ are permitted provided that the original author is acknowledged. See JavaScript 
 <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha384-1H217gwSVyLSIfaLxHbE7dRb3v4mYCKbpQvzx0cegeju1MVsGrX5xXxAvs/HgeFs" crossorigin="anonymous"></script>
 <script type="text/javascript">
 // Global variables
-let lastMessageId = 0;
+let lastMessageId = -1;
 let peer_id = -1;
 const myID = {{ sender_id }};
 let userInfo = {};
@@ -128,8 +128,6 @@ checkAndGenerateKeys().catch(console.error);
 
 
 async function deriveKeys(sharedSecretBits, salt, peer_id, direction = 'to') {
-    console.log("Deriving keys!!!");
-
     // Import the raw shared secret bits as a CryptoKey for use with HKDF
     const sharedSecretKey = await window.crypto.subtle.importKey(
         "raw",
@@ -186,23 +184,41 @@ async function startKeyDerivation() {
 }
 
 
-// Function to generate a unique IV based on a counter
-function generateIVForUser(userId, direction) {
-    if (!ivCounters[userId]) {
-        ivCounters[userId] = { send: 0, receive: 0 };
+async function fetchLatestMessageId() {
+    try {
+        // Use the global variable `peer_id`
+        const response = await fetch(`/api/latest_message_id/${peer_id}`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch the latest message ID for peer ID ${peer_id}`);
+        }
+        const data = await response.json();
+        return data.latest_message_id; // Assuming the response contains {latest_message_id: number}
+    } catch (error) {
+        console.error("Error fetching the latest message ID:", error);
+        return null; // Or handle error appropriately
     }
-    ivCounters[userId][direction] += 1;
-    const ivCounter = ivCounters[userId][direction];
-    const iv = new Uint8Array(12); // 96-bit IV
-    iv.set(new Uint8Array([ivCounter >> 24, ivCounter >> 16, ivCounter >> 8, ivCounter]), 8); // Example counter usage
+}
+
+async function generateIV() {
+    let latestMessageId = await fetchLatestMessageId();
+    if (latestMessageId === null) {
+        console.log("No previous messages found. Using initial value for IV generation.");
+        latestMessageId = 0; // Set an initial value if there's no history.
+    }
+
+    const iv = new Uint8Array(12); // 96-bit IV placeholder.
+    // Increment the latest message ID (or use the initial value) to get a unique IV for the next message.
+    iv.set(new Uint8Array([(latestMessageId+1) >> 24, (latestMessageId+1) >> 16, (latestMessageId+1) >> 8, (latestMessageId+1)]), 8);
+    console.log("Generated IV:", iv);
     return iv;
 }
+
+
 
 // Assuming aesKey and macKey are already derived and available
 // ivCounters should be managed globally to track IVs for each chat session
 
 async function storeKeys(aesKey, macKey, peer_id) {
-    console.log("storekeys!!!!!!");
     // Export the AES-GCM encryption key
     const aesKeyExported = await window.crypto.subtle.exportKey("jwk", aesKey);
     // Export the HMAC key
@@ -251,7 +267,7 @@ async function sendMessage() {
     }
 
     // Generate a unique IV and prepare AAD
-    const iv = generateIVForUser(peer_id, 'send');
+    const iv = await generateIV();
     const encoder = new TextEncoder();
     const additionalData = encoder.encode(`CHAT_MSG_FROM_${myID}_TO_${peer_id}`);
 
@@ -281,7 +297,7 @@ async function sendMessage() {
     if (!response.ok) {
         throw new Error('Failed to send encrypted message to the server');
     }
-
+    lastMessageId++;
     console.log("Encrypted message and HMAC signature sent to server");
     document.getElementById('messageInput').value = ''; // Clear the input field after sending
 }
@@ -364,7 +380,6 @@ document.getElementById('userList').addEventListener('change', async(event) => {
     }
     
     clearChatBox();
-    lastMessageId = 0;
     fetchMessages(); // Fetch messages for the new selection
 });
 
@@ -453,7 +468,7 @@ function clearChatBox() {
 
 // Fetch messages from server
 function fetchMessages() {
-    if (peer_id === -1) return; // Exit if no peer selected
+    if (peer_id === -1 || lastMessageId == -1) return; // Exit if no peer selected
     fetch(`/fetch_messages?last_message_id=${lastMessageId}&peer_id=${peer_id}`)
         .then(response => response.json())
         .then(data => {
@@ -467,6 +482,9 @@ function fetchMessages() {
 
 // Display a single message
 async function displayMessage(encryptedMessage) {
+    if (!encryptedMessage) {
+        return;
+    }
     // Retrieve AES and MAC keys from localStorage and import them
     const aesKeyJwk = JSON.parse(localStorage.getItem('aesKey'));
     const macKeyJwk = JSON.parse(localStorage.getItem('macKey'));
@@ -515,7 +533,6 @@ async function displayMessage(encryptedMessage) {
     
     messageElement.textContent = `From ${sender} to ${receiver}: ${plaintext}`;
     messagesContainer.appendChild(messageElement);
-    console.log(encryptedMessage);
 }
 
 

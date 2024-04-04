@@ -169,6 +169,30 @@ def save_encrypted_message(sender_id, receiver_id, ciphertext, iv, hmac):
     cur.execute(query, values)
     mysql.connection.commit()
 
+@app.route('/api/latest_message_id/<int:peer_id>')
+def get_latest_message_id(peer_id):
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'Authentication required'}), 403
+
+    try:
+        cur = mysql.connection.cursor()
+        # Adjust the query to consider the dialog between user_id and peer_id
+        query = """
+            SELECT MAX(message_id) AS latest_message_id
+            FROM messages
+            WHERE (sender_id = %s AND receiver_id = %s) OR (sender_id = %s AND receiver_id = %s)
+        """
+        cur.execute(query, (user_id, peer_id, peer_id, user_id))
+        result = cur.fetchone()
+        cur.close()
+
+        latest_message_id = result['latest_message_id'] if result['latest_message_id'] is not None else 0
+        return jsonify({'latest_message_id': latest_message_id}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 
 @app.route('/erase_chat', methods=['POST'])
 def erase_chat():
