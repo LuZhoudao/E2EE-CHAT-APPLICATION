@@ -71,11 +71,12 @@ async function fetchAndSetupEncryptionWithPeer(peerId) {
 
 // Placeholder function to send public key to server
 
-async function checkAndGenerateKeys() {
-    // Check if a private key already exists in localStorage
-    const existingPrivateKey = localStorage.getItem('privateKey');
+//async function checkAndGenerateKeys() {
+    // Check if a private key already exists in localStorage. no need now
+async function GenerateKeypair() {
+    //const existingPrivateKey = localStorage.getItem('privateKey');
 
-    if (!existingPrivateKey) {
+    //if (!existingPrivateKey) {
         // No existing private key, generate a new key pair
         const keyPair = await window.crypto.subtle.generateKey(
             {
@@ -117,14 +118,14 @@ async function checkAndGenerateKeys() {
             throw new Error('Failed to send public key to server');
         }
         console.log('Public key sent successfully');
-    } else {
-        console.log('Existing private key found, no need to generate a new one');
-    }
+    //} else {
+    //    console.log('Existing private key found, no need to generate a new one');
+    //}
 }
 
 // Call the function to check for an existing private key or generate a new one
-checkAndGenerateKeys().catch(console.error);
-
+//checkAndGenerateKeys().catch(console.error);
+GenerateKeypair().catch(console.error);
 
 
 async function deriveKeys(sharedSecretBits, salt, peer_id, direction = 'to') {
