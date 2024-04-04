@@ -93,7 +93,7 @@ async function checkAndGenerateKeys() {
         );
         const privateKeyBase64 = window.btoa(String.fromCharCode(...new Uint8Array(exportedPrivateKey)));
         localStorage.setItem('privateKey', privateKeyBase64);
-        console.log('Generated and stored private key:', privateKeyBase64); //test
+        //console.log('Generated and stored private key:', privateKeyBase64); //test
 
         // Export the public key, convert it to Base64, and prepare to send it to the server
         const exportedPublicKey = await window.crypto.subtle.exportKey(
@@ -177,17 +177,13 @@ async function deriveKeys(sharedSecretBits, salt, peer_id, direction = 'to') {
 }
 
 
-        
-        // Example usage
-        async function startKeyDerivation() {
-            const sharedSecret = await deriveSharedSecret(); 
-            const salt = window.crypto.getRandomValues(new Uint8Array(16)); // Generate a unique salt
-        
-            const { aesKey, macKey } = await deriveKeys(sharedSecret, salt, peer_id, 'to');
-            storeKeys(aesKey,macKey,peer_id);
-
-           
-        }
+    
+async function startKeyDerivation() {
+    const sharedSecret = await deriveSharedSecret(); 
+    const salt = window.crypto.getRandomValues(new Uint8Array(16)); // Generate a unique salt    
+    const { aesKey, macKey } = await deriveKeys(sharedSecret, salt, peer_id, 'to');
+    storeKeys(aesKey,macKey,peer_id);
+}
 
 
 // Function to generate a unique IV based on a counter
@@ -376,13 +372,13 @@ async function deriveSharedSecret() {
     // Retrieve the Base64-encoded keys from localStorage
     const privateKeyBase64 = localStorage.getItem('privateKey');
     const peerPublicKeyBase64 = localStorage.getItem(`publicKey_${peer_id}`);
-    console.log("Private Key Base64:", privateKeyBase64);//test
-    console.log(`Peer Public Key Base64 for ${peer_id}:`, peerPublicKeyBase64);//test
+    //console.log("Private Key Base64:", privateKeyBase64);//test
+    //console.log(`Peer Public Key Base64 for ${peer_id}:`, peerPublicKeyBase64);//test
     // Decode the Base64 strings to ArrayBuffers
     const privateKeyArrayBuffer = base64ToArrayBuffer(privateKeyBase64);
     const peerPublicKeyArrayBuffer = base64ToArrayBuffer(peerPublicKeyBase64);
-    console.log("Private Key ArrayBuffer:", privateKeyArrayBuffer);//test
-    console.log("Peer Public Key ArrayBuffer:", peerPublicKeyArrayBuffer);//test
+    //console.log("Private Key ArrayBuffer:", privateKeyArrayBuffer);//test
+    //console.log("Peer Public Key ArrayBuffer:", peerPublicKeyArrayBuffer);//test
     // Import the private key
     const privateKey = await window.crypto.subtle.importKey(
         "pkcs8",
@@ -394,7 +390,7 @@ async function deriveSharedSecret() {
         false, 
         ["deriveKey", "deriveBits"] 
     );
-    console.log("Imported Private Key:", privateKey);//test
+    //console.log("Imported Private Key:", privateKey);//test
     // Import the peer's public key
     const peerPublicKey = await window.crypto.subtle.importKey(
         "spki",
@@ -406,7 +402,7 @@ async function deriveSharedSecret() {
         false, 
         [] 
     );
-    console.log("Imported Peer Public Key:", peerPublicKey);//test
+    //console.log("Imported Peer Public Key:", peerPublicKey);//test
 
     // Derive the shared secret
     const sharedSecret = await window.crypto.subtle.deriveKey(
