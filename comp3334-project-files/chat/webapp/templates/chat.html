@@ -93,6 +93,7 @@ async function checkAndGenerateKeys() {
         );
         const privateKeyBase64 = window.btoa(String.fromCharCode(...new Uint8Array(exportedPrivateKey)));
         localStorage.setItem('privateKey', privateKeyBase64);
+        console.log('Generated and stored private key:', privateKeyBase64); //test
 
         // Export the public key, convert it to Base64, and prepare to send it to the server
         const exportedPublicKey = await window.crypto.subtle.exportKey(
@@ -100,15 +101,16 @@ async function checkAndGenerateKeys() {
             keyPair.publicKey
         );
         const publicKeyBase64 = window.btoa(String.fromCharCode(...new Uint8Array(exportedPublicKey)));
-
+        console.log('Generated public key (Base64):', publicKeyBase64);//test
         // Send the public key to the server
-        // Replace this URL with your actual endpoint that handles the public key reception
-        const response = await fetch('/api/sendPublicKey', {
+        
+        const response = await fetch('/update_public_key', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                // 'Authorization': 'Bearer <token_here>',
             },
-            body: JSON.stringify({ publicKey: publicKeyBase64 }),
+            body: JSON.stringify({ public_key: publicKeyBase64 }),
         });
 
         if (!response.ok) {
@@ -178,7 +180,6 @@ async function deriveKeys(sharedSecretBits, salt, peer_id, direction = 'to') {
         
         // Example usage
         async function startKeyDerivation() {
-            
             const sharedSecret = await deriveSharedSecret(); 
             const salt = window.crypto.getRandomValues(new Uint8Array(16)); // Generate a unique salt
         
@@ -277,7 +278,7 @@ async function sendMessage() {
             ciphertext: encryptedDataB64,
             iv: arrayBufferToBase64(iv),
             hmac: hmacSignatureB64,
-            // Add other data here
+            
         }),
     });
 
@@ -360,7 +361,7 @@ document.getElementById('userList').addEventListener('change', async(event) => {
         localStorage.setItem(`publicKey_${peer_id}`, data.public_key);
         
         startKeyDerivation();
-
+        
         // Proceed to setup encryption or any other necessary steps
     } catch (error) {
         console.error('Error fetching public key:', error);
@@ -375,11 +376,13 @@ async function deriveSharedSecret() {
     // Retrieve the Base64-encoded keys from localStorage
     const privateKeyBase64 = localStorage.getItem('privateKey');
     const peerPublicKeyBase64 = localStorage.getItem(`publicKey_${peer_id}`);
-
+    console.log("Private Key Base64:", privateKeyBase64);//test
+    console.log(`Peer Public Key Base64 for ${peer_id}:`, peerPublicKeyBase64);//test
     // Decode the Base64 strings to ArrayBuffers
     const privateKeyArrayBuffer = base64ToArrayBuffer(privateKeyBase64);
     const peerPublicKeyArrayBuffer = base64ToArrayBuffer(peerPublicKeyBase64);
-
+    console.log("Private Key ArrayBuffer:", privateKeyArrayBuffer);//test
+    console.log("Peer Public Key ArrayBuffer:", peerPublicKeyArrayBuffer);//test
     // Import the private key
     const privateKey = await window.crypto.subtle.importKey(
         "pkcs8",
@@ -391,7 +394,7 @@ async function deriveSharedSecret() {
         false, 
         ["deriveKey", "deriveBits"] 
     );
-
+    console.log("Imported Private Key:", privateKey);//test
     // Import the peer's public key
     const peerPublicKey = await window.crypto.subtle.importKey(
         "spki",
@@ -403,6 +406,7 @@ async function deriveSharedSecret() {
         false, 
         [] 
     );
+    console.log("Imported Peer Public Key:", peerPublicKey);//test
 
     // Derive the shared secret
     const sharedSecret = await window.crypto.subtle.deriveKey(
@@ -427,7 +431,17 @@ async function deriveSharedSecret() {
         privateKey, 
         256
     );
+    const hashBuffer = await window.crypto.subtle.digest(
+        {
+            name: "SHA-256"
+        },
+        bits // The derived bits you want to hash
+    );
 
+    // Convert the hash to a Base64 string to make it easier to compare or transmit
+    const hashBase64 = arrayBufferToBase64(hashBuffer);
+
+    console.log("Hash of Derived Bits: ", hashBase64);
     //console.log("Derived shared secret:", sharedSecret);
     //console.log("Derived bits: ", bits);
     return bits;
