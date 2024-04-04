@@ -184,34 +184,29 @@ async function startKeyDerivation() {
 }
 
 
-async function fetchLatestMessageId() {
-    try {
-        // Use the global variable `peer_id`
-        const response = await fetch(`/api/latest_message_id/${peer_id}`);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch the latest message ID for peer ID ${peer_id}`);
-        }
-        const data = await response.json();
-        return data.latest_message_id; // Assuming the response contains {latest_message_id: number}
-    } catch (error) {
-        console.error("Error fetching the latest message ID:", error);
-        return null; // Or handle error appropriately
-    }
-}
-
 async function generateIV() {
-    let latestMessageId = await fetchLatestMessageId();
-    if (latestMessageId === null) {
+    const latestIVResponse = await fetch(`/api/latest_iv/${peer_id}`);
+    const latestIV = await latestIVResponse.text();
+
+    // Check if latestIV is '-1', if so, return a 96-bit IV of zeros
+    if (latestIV === '-1') {
         console.log("No previous messages found. Using initial value for IV generation.");
-        latestMessageId = 0; // Set an initial value if there's no history.
+        return new Uint8Array(12);
     }
 
-    const iv = new Uint8Array(12); // 96-bit IV placeholder.
-    // Increment the latest message ID (or use the initial value) to get a unique IV for the next message.
-    iv.set(new Uint8Array([(latestMessageId+1) >> 24, (latestMessageId+1) >> 16, (latestMessageId+1) >> 8, (latestMessageId+1)]), 8);
-    console.log("Generated IV:", iv);
-    return iv;
+    const latestIVBytes = new Uint8Array(12);
+    for (let i = 0; i < 12; i++) {
+        latestIVBytes[i] = parseInt(latestIV.substr(i * 2, 2), 16);
+    }
+
+    // Increment the last byte of the IV to get a unique IV for the next message.
+    latestIVBytes[11]++;
+    
+    console.log("Generated IV:", latestIVBytes);
+    return latestIVBytes;
 }
+
+
 
 
 
