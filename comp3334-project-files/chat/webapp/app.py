@@ -325,6 +325,10 @@ def qr_code():
     else:
         abort(404)
 
+@app.route('/forgot-password')
+def forgot_password():
+    return render_template('forgot-password.html')
+
 @app.route('/verify_totp', methods=['GET', 'POST'])
 def verify_totp():
     if not session.get('username_password_verified'):
@@ -349,6 +353,15 @@ def verify_totp():
             pass
     # Show TOTP verification form
     return render_template('verify_totp.html')
+
+
+#about forgot password
+@app.route('/validate-security-info', methods=['POST'])
+def validate_security_info():
+    ## implement here 
+
+    return redirect(url_for('forgot_password'))
+
 
 bcrypt = Bcrypt(app)
 if __name__ == '__main__':
