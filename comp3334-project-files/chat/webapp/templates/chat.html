@@ -466,17 +466,58 @@ function fetchMessages() {
 }
 
 // Display a single message
-function displayMessage(message) {
+async function displayMessage(encryptedMessage) {
+    // Retrieve AES and MAC keys from localStorage and import them
+    const aesKeyJwk = JSON.parse(localStorage.getItem('aesKey'));
+    const macKeyJwk = JSON.parse(localStorage.getItem('macKey'));
+    const aesKey = await window.crypto.subtle.importKey("jwk", aesKeyJwk, { name: "AES-GCM" }, true, ["decrypt"]);
+    const macKey = await window.crypto.subtle.importKey("jwk", macKeyJwk, { name: "HMAC", hash: { name: "SHA-256" } }, true, ["verify"]);
+
+    // Convert IV, HMAC, and ciphertext from Base64 to ArrayBuffer
+    const ivArrayBuffer = base64ToArrayBuffer(encryptedMessage.iv);
+    const hmacArrayBuffer = base64ToArrayBuffer(encryptedMessage.hmac);
+    const ciphertextArrayBuffer = base64ToArrayBuffer(encryptedMessage.ciphertext);
+
+    // Verify IV HMAC to ensure it hasn't been tampered with
+    const isHmacValid = await window.crypto.subtle.verify(
+        "HMAC",
+        macKey,
+        hmacArrayBuffer, // The HMAC signature from the message
+        ivArrayBuffer // The IV used for encryption
+    );
+
+    if (!isHmacValid) {
+        console.error("HMAC verification failed: data integrity compromised.");
+        return;
+    }
+
+    // Decrypt the message
+    let plaintext;
+    try {
+        const decryptedData = await window.crypto.subtle.decrypt(
+            { name: "AES-GCM", iv: ivArrayBuffer },
+            aesKey,
+            ciphertextArrayBuffer
+        );
+        plaintext = new TextDecoder().decode(decryptedData);
+    } catch (error) {
+        console.error("Decryption failed", error);
+        return;
+    }
+
+    // Append decrypted message to chat
     const messagesContainer = document.getElementById('messages');
     const messageElement = document.createElement('div');
-
+    
     // Determine sender and receiver strings
-    const sender = message.sender_id == myID ? "me" : (userInfo[message.sender_id] || `User ${message.sender_id}`);
-    const receiver = message.receiver_id == myID ? "me" : (userInfo[message.receiver_id] || `User ${message.receiver_id}`);
-
-    messageElement.textContent = `From ${sender} to ${receiver}: ${message.message_text}`;
+    const sender = encryptedMessage.sender_id == myID ? "me" : (userInfo[encryptedMessage.sender_id] || `User ${encryptedMessage.sender_id}`);
+    const receiver = encryptedMessage.receiver_id == myID ? "me" : (userInfo[encryptedMessage.receiver_id] || `User ${encryptedMessage.receiver_id}`);
+    
+    messageElement.textContent = `From ${sender} to ${receiver}: ${plaintext}`;
     messagesContainer.appendChild(messageElement);
+    console.log(encryptedMessage);
 }
+
 
 // Periodically fetch new messages every second
 setInterval(fetchMessages, 1000);
