@@ -243,11 +243,19 @@ def register():
         hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
 
         # encrypt question and answer
-        cipher = AES.new(app.config['SECRET_KEY'], AES.MODE_CBC)
-        iv = b64encode(cipher.iv).decode('utf-8')
-        encrypted_question = AESencrypt(cipher, security_question.encode())
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT iv FROM users ORDER BY user_id DESC LIMIT 1")
+        result = cur.fetchone()
+        cur.close()
+        if result:
+            length = len(result[0])
+            iv = bytes((int.from_bytes(result[0], byteorder='big')+1).to_bytes(length, byteorder='big'))
+        else:
+            iv = os.urandom(16)
+        cur.close()
+        encrypted_question = AESencrypt(app.config['SECRET_KEY'], iv, security_question.encode())
         #decrypted_question = AESdecrypt(app.config['SECRET_KEY'], iv, security_question)
-        encrypted_answer = AESencrypt(cipher, security_answer.encode())
+        encrypted_answer = AESencrypt(app.config['SECRET_KEY'], iv, security_answer.encode())
         #decrypted_answer = AESdecrypt(app.config['SECRET_KEY'], iv, security_answer)
 
         try:
@@ -340,7 +348,6 @@ def qr_code():
 
     #del session['username']
 
-    username = session['username']
     cur = mysql.connection.cursor()
     cur.execute("SELECT user_id, totp_secret FROM users WHERE username = %s", [username])
     account = cur.fetchone()
