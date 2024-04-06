@@ -203,18 +203,13 @@ def get_latest_iv(peer_id):
         result = cur.fetchone()
         cur.close()
 
-        # If a message is found, return its IV, otherwise return -1
-        latest_iv = result['iv'] if result else -1
-        return latest_iv.hex() if latest_iv else '-1', 200
+        # If a message is found, return its IV as hexadecimal, otherwise return '-1'
+        # Accessing the first item of the tuple directly
+        latest_iv = result[0] if result else '-1'
+        return jsonify({'iv': latest_iv.hex() if latest_iv != '-1' else latest_iv}), 200
     except Exception as e:
         print(f"Error fetching the latest IV: {e}")
         return jsonify({'error': 'Internal Server Error'}), 500
-
-
-
-
-
-
 
 
 @app.route('/erase_chat', methods=['POST'])

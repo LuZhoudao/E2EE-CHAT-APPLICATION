@@ -209,8 +209,6 @@ async function generateIV() {
 
 
 
-
-
 // Assuming aesKey and macKey are already derived and available
 // ivCounters should be managed globally to track IVs for each chat session
 
@@ -491,6 +489,14 @@ async function displayMessage(encryptedMessage) {
     const ivArrayBuffer = base64ToArrayBuffer(encryptedMessage.iv);
     const hmacArrayBuffer = base64ToArrayBuffer(encryptedMessage.hmac);
     const ciphertextArrayBuffer = base64ToArrayBuffer(encryptedMessage.ciphertext);
+//test
+    console.log("Received IV (Base64):", encryptedMessage.iv);
+    console.log("Received HMAC (Base64):", encryptedMessage.hmac);
+    console.log("Received Ciphertext (Base64):", encryptedMessage.ciphertext);
+    console.log("IV ArrayBuffer:", ivArrayBuffer);
+    console.log("HMAC ArrayBuffer:", hmacArrayBuffer);
+    console.log("Ciphertext ArrayBuffer:", ciphertextArrayBuffer);
+//test
 
     // Verify IV HMAC to ensure it hasn't been tampered with
     const isHmacValid = await window.crypto.subtle.verify(
@@ -532,6 +538,7 @@ async function displayMessage(encryptedMessage) {
 }
 
 
+
 // Periodically fetch new messages every second
 setInterval(fetchMessages, 1000);
 
@@ -565,3 +572,4 @@ function eraseChat() {
 </script>
 </body>
 </html>
+
