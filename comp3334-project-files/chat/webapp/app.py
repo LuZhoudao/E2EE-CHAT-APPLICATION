@@ -130,7 +130,11 @@ def fetch_messages_from_db(peer_id, last_message_id):
         'created_at': msg[6].strftime("%Y-%m-%d %H:%M:%S"),
     } for msg in messages]
 
-
+def base64_to_hex(base64_str):
+    # Decode the Base64 string to bytes
+    byte_data = base64.b64decode(base64_str)
+    # Convert bytes to hexadecimal string and return
+    return byte_data.hex()
 
 @app.route('/api/send_message', methods=['POST'])
 def send_message():
@@ -145,9 +149,12 @@ def send_message():
     sender_id = session['user_id']
     receiver_id = request.json['peer_id'] 
     ciphertext = request.json['ciphertext']
-    iv = request.json['iv']
-    hmac = request.json['hmac']
+    iv_base64 = request.json['iv']
+    hmac_base64 = request.json['hmac']
 
+    iv = base64_to_hex(iv_base64)
+    hmac = base64_to_hex(hmac_base64)
+    
 
     # simply prints the received data
     print(f"Received encrypted message from {sender_id} to {receiver_id}")
@@ -160,14 +167,21 @@ def send_message():
     return jsonify({'status': 'success', 'message': 'Encrypted message sent'}), 200
 
 def save_encrypted_message(sender_id, receiver_id, ciphertext, iv, hmac):
-    query = '''INSERT INTO messages 
-               (sender_id, receiver_id, ciphertext, iv, hmac) 
-               VALUES (%s, %s, %s, %s, %s)'''
-    values = (sender_id, receiver_id, ciphertext, iv, hmac)
-    
-    cur = mysql.connection.cursor()
-    cur.execute(query, values)
-    mysql.connection.commit()
+    try:
+        query = '''INSERT INTO messages 
+                   (sender_id, receiver_id, ciphertext, iv, hmac) 
+                   VALUES (%s, %s, %s, %s, %s)'''
+        values = (sender_id, receiver_id, ciphertext, iv, hmac)
+        
+        cur = mysql.connection.cursor()
+        cur.execute(query, values)
+        mysql.connection.commit()
+        cur.close()
+        return True
+    except Exception as e:
+        print(f"Failed to save message: {e}")
+        return False
+
 
 @app.route('/api/latest_iv/<int:peer_id>')
 def get_latest_iv(peer_id):
@@ -195,6 +209,7 @@ def get_latest_iv(peer_id):
     except Exception as e:
         print(f"Error fetching the latest IV: {e}")
         return jsonify({'error': 'Internal Server Error'}), 500
+
 
 
 
