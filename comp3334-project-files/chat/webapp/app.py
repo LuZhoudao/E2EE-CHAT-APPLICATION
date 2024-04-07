@@ -114,7 +114,6 @@ def fetch_messages_from_db(peer_id, last_message_id):
         AND message_id > %s
     ORDER BY message_id ASC
     """
-    print("fetchmessage being called!!") #test
     
     values = (session['user_id'], peer_id, peer_id, session['user_id'], last_message_id)
     

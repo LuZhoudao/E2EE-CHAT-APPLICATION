@@ -199,6 +199,8 @@ async function generateIV() {
         console.error("Error decoding IV from Base64:", error);
         // If decoding fails, initialize a new IV of 12 zero bytes
         ivBytes = new Uint8Array(12);
+        
+        console.log("ivbytes at the very biginning: ",arrayBufferToBase64(ivBytes))
     }
     
     // Increment the IV
@@ -219,8 +221,6 @@ async function generateIV() {
     const incrementedIVBase64 = btoa(String.fromCharCode.apply(null, ivBytes));
     return incrementedIVBase64;
 }
-
-
 
 
 
@@ -523,9 +523,9 @@ async function displayMessage(encryptedMessage) {
     console.log("Received IV (Base64):", encryptedMessage.iv);
     console.log("Received HMAC (Base64):", encryptedMessage.hmac);
     console.log("Received Ciphertext (Base64):", encryptedMessage.ciphertext);
-    console.log("IV ArrayBuffer:", ivArrayBuffer);
-    console.log("HMAC ArrayBuffer:", hmacArrayBuffer);
-    console.log("Ciphertext ArrayBuffer:", ciphertextArrayBuffer);
+    //console.log("IV ArrayBuffer:", ivArrayBuffer);
+    //console.log("HMAC ArrayBuffer:", hmacArrayBuffer);
+    //console.log("Ciphertext ArrayBuffer:", ciphertextArrayBuffer);
 //test
 
     // Verify IV HMAC to ensure it hasn't been tampered with
