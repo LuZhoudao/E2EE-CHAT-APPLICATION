@@ -237,9 +237,14 @@ def register():
         # Process the form data and register the user
         username = request.form['username']
         password = request.form['password']
+        retyped_password = request.form["retyped_password"]
         public_key = request.form['public_key']  # Make sure you have an input for this in your form
         security_question = request.form['securityQuestion']
         security_answer = request.form['securityAnswer']
+
+        if password != retyped_password:
+            flash("Different passwords, please input again", 'danger')
+            return render_template('register.html')
 
         # Hash the password
         hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
@@ -248,7 +253,6 @@ def register():
         cur = mysql.connection.cursor()
         cur.execute("SELECT iv FROM users ORDER BY user_id DESC LIMIT 1")
         result = cur.fetchone()
-        cur.close()
         if result:
             length = len(result[0])
             iv = bytes((int.from_bytes(result[0], byteorder='big')+1).to_bytes(length, byteorder='big'))
