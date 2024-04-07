@@ -274,7 +274,13 @@ async function sendMessage() {
     // Convert encrypted data and HMAC signature to Base64 for sending
     const encryptedDataB64 = arrayBufferToBase64(encryptedData);
     const hmacSignatureB64 = arrayBufferToBase64(hmacSignature);
-
+    const ivb64 = arrayBufferToBase64(iv);
+//test
+    console.log("encryption test:")
+    console.log("encryptedDataB64: ", encryptedDataB64);
+    console.log("hmacSignatureB64", hmacSignatureB64);
+    console.log("ivB64:", ivb64);
+//test
     // Send the encrypted message and HMAC signature to the server
     const response = await fetch('/api/send_message', {
         method: 'POST',
@@ -490,6 +496,7 @@ async function displayMessage(encryptedMessage) {
     const hmacArrayBuffer = base64ToArrayBuffer(encryptedMessage.hmac);
     const ciphertextArrayBuffer = base64ToArrayBuffer(encryptedMessage.ciphertext);
 //test
+    console.log("decryption test:")
     console.log("Received IV (Base64):", encryptedMessage.iv);
     console.log("Received HMAC (Base64):", encryptedMessage.hmac);
     console.log("Received Ciphertext (Base64):", encryptedMessage.ciphertext);
@@ -505,7 +512,7 @@ async function displayMessage(encryptedMessage) {
         hmacArrayBuffer, // The HMAC signature from the message
         ivArrayBuffer // The IV used for encryption
     );
-
+    
     if (!isHmacValid) {
         console.error("HMAC verification failed: data integrity compromised.");
         return;

@@ -125,16 +125,10 @@ def fetch_messages_from_db(peer_id, last_message_id):
         'sender_id': msg[1],
         'receiver_id': msg[2],
         'ciphertext': msg[3],
-        'iv': msg[4].hex(),  # Assuming binary data
-        'hmac': msg[5].hex(),  # Assuming binary data
+        'iv': msg[4],  # Assuming binary data
+        'hmac': msg[5],  # Assuming binary data
         'created_at': msg[6].strftime("%Y-%m-%d %H:%M:%S"),
     } for msg in messages]
-
-def base64_to_hex(base64_str):
-    # Decode the Base64 string to bytes
-    byte_data = base64.b64decode(base64_str)
-    # Convert bytes to hexadecimal string and return
-    return byte_data.hex()
 
 @app.route('/api/send_message', methods=['POST'])
 def send_message():
@@ -151,18 +145,15 @@ def send_message():
     ciphertext = request.json['ciphertext']
     iv_base64 = request.json['iv']
     hmac_base64 = request.json['hmac']
-
-    iv = base64_to_hex(iv_base64)
-    hmac = base64_to_hex(hmac_base64)
     
 
     # simply prints the received data
     print(f"Received encrypted message from {sender_id} to {receiver_id}")
     print(f"Ciphertext: {ciphertext}")
-    print(f"IV: {iv}")
-    print(f"HMAC: {hmac}")
+    print(f"IV: {iv_base64}")
+    print(f"HMAC: {hmac_base64}")
     
-    save_encrypted_message(sender_id, receiver_id, ciphertext, iv, hmac)
+    save_encrypted_message(sender_id, receiver_id, ciphertext, iv_base64, hmac_base64)
     
     return jsonify({'status': 'success', 'message': 'Encrypted message sent'}), 200
 
