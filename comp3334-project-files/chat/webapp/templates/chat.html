@@ -140,8 +140,8 @@ async function deriveKeys(sharedSecretBits, salt, peer_id, direction = 'to') {
 
     // Define HKDF parameters
     const baseInfo = `CHAT_KEY_USER${direction}${peer_id}`;
-    const encryptionInfo = `${baseInfo}_ENCRYPTION`;
-    const macInfo = `${baseInfo}_MAC`;
+    const encryptionInfo = `ENC`;
+    const macInfo = `MAC`;
 
     // Derive the AES-GCM encryption key
     const aesKey = await window.crypto.subtle.deriveKey(
@@ -179,7 +179,8 @@ async function deriveKeys(sharedSecretBits, salt, peer_id, direction = 'to') {
     
 async function startKeyDerivation() {
     const sharedSecret = await deriveSharedSecret(); 
-    const salt = window.crypto.getRandomValues(new Uint8Array(16)); // Generate a unique salt    
+    const salt =new Uint8Array(16); // Generate a unique salt    
+    console.log(arrayBufferToBase64(salt))
     const { aesKey, macKey } = await deriveKeys(sharedSecret, salt, peer_id, 'to');
     storeKeys(aesKey,macKey,peer_id);
 }
