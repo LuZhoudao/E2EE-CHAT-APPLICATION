@@ -280,13 +280,12 @@ async function sendMessage() {
     const iv = base64ToArrayBuffer(ivb64);
     const encoder = new TextEncoder();
 
-    //const additionalData = encoder.encode(`CHAT_MSG_FROM_${myID}_TO_${peer_id}`);
-    const additionalData = encoder.encode(`add`);
+    const associatedData = 'CHAT_MSG_FROM_${myID}_TO_${peer_id}';
     // Encrypt the message
     const encryptedData = await window.crypto.subtle.encrypt(
         {
              name: "AES-GCM", iv
-             //, additionalData 
+             , associatedData
             },
              aesKey, encoder.encode(message)
     );
@@ -543,11 +542,13 @@ async function displayMessage(encryptedMessage) {
 
     // Decrypt the message
     let plaintext;
+    const associatedData = 'CHAT_MSG_FROM_${myID}_TO_${peer_id}';
     try {
         const decryptedData = await window.crypto.subtle.decrypt(
             { name: "AES-GCM", iv: ivArrayBuffer },
             aesKey,
-            ciphertextArrayBuffer
+            ciphertextArrayBuffer,
+            associatedData
         );
         plaintext = new TextDecoder().decode(decryptedData);
     } catch (error) {
