@@ -187,25 +187,39 @@ async function startKeyDerivation() {
 
 async function generateIV() {
     const latestIVResponse = await fetch(`/api/latest_iv/${peer_id}`);
-    const latestIV = await latestIVResponse.text();
-
-    // Check if latestIV is '-1', if so, return a 96-bit IV of zeros
-    if (latestIV === '-1') {
-        console.log("No previous messages found. Using initial value for IV generation.");
-        return new Uint8Array(12);
-    }
-
-    const latestIVBytes = new Uint8Array(12);
-    for (let i = 0; i < 12; i++) {
-        latestIVBytes[i] = parseInt(latestIV.substr(i * 2, 2), 16);
-    }
-
-    // Increment the last byte of the IV to get a unique IV for the next message.
-    latestIVBytes[11]++;
+    const responseData = await latestIVResponse.json();
+    let latestIVBase64 = responseData.iv;
     
-    console.log("Generated IV:", latestIVBytes);
-    return latestIVBytes;
+    // Decode Base64 IV to bytes
+    let ivBytes;
+    try {
+        ivBytes = Uint8Array.from(atob(latestIVBase64), c => c.charCodeAt(0));
+    } catch (error) {
+        console.error("Error decoding IV from Base64:", error);
+        // If decoding fails, initialize a new IV of 12 zero bytes
+        ivBytes = new Uint8Array(12);
+    }
+    
+    // Increment the IV
+    for (let i = 11; i >= 0; i--) {
+        if (ivBytes[i] < 255) {
+            ivBytes[i]++;
+            break;
+        } else if (i > 0) {
+            // Reset current byte to 0 and continue loop to increment next byte
+            ivBytes[i] = 0;
+        } else {
+            // Handle overflow by wrapping around
+            ivBytes[i] = 0;
+        }
+    }
+
+    // Re-encode IV to Base64
+    const incrementedIVBase64 = btoa(String.fromCharCode.apply(null, ivBytes));
+    return incrementedIVBase64;
 }
+
+
 
 
 
@@ -261,8 +275,10 @@ async function sendMessage() {
     }
 
     // Generate a unique IV and prepare AAD
-    const iv = await generateIV();
+    const ivb64 = await generateIV();
+    const iv = base64ToArrayBuffer(ivb64);
     const encoder = new TextEncoder();
+
     const additionalData = encoder.encode(`CHAT_MSG_FROM_${myID}_TO_${peer_id}`);
 
     // Encrypt the message
@@ -274,12 +290,12 @@ async function sendMessage() {
     // Convert encrypted data and HMAC signature to Base64 for sending
     const encryptedDataB64 = arrayBufferToBase64(encryptedData);
     const hmacSignatureB64 = arrayBufferToBase64(hmacSignature);
-    const ivb64 = arrayBufferToBase64(iv);
+   
 //test
     console.log("encryption test:")
     console.log("encryptedDataB64: ", encryptedDataB64);
     console.log("hmacSignatureB64", hmacSignatureB64);
-    console.log("ivB64:", ivb64);
+    console.log("iv:", iv);
 //test
     // Send the encrypted message and HMAC signature to the server
     const response = await fetch('/api/send_message', {
@@ -473,6 +489,7 @@ function fetchMessages() {
         .then(response => response.json())
         .then(data => {
             data.messages.forEach(message => {
+                console.log("displaymessages being called");
                 displayMessage(message);
                 lastMessageId = message.message_id;
             });
