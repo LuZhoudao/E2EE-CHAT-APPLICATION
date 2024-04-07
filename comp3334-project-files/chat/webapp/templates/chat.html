@@ -280,10 +280,16 @@ async function sendMessage() {
     const iv = base64ToArrayBuffer(ivb64);
     const encoder = new TextEncoder();
 
-    const additionalData = encoder.encode(`CHAT_MSG_FROM_${myID}_TO_${peer_id}`);
-
+    //const additionalData = encoder.encode(`CHAT_MSG_FROM_${myID}_TO_${peer_id}`);
+    const additionalData = encoder.encode(`add`);
     // Encrypt the message
-    const encryptedData = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData }, aesKey, encoder.encode(message));
+    const encryptedData = await window.crypto.subtle.encrypt(
+        {
+             name: "AES-GCM", iv
+             //, additionalData 
+            },
+             aesKey, encoder.encode(message)
+    );
 
     // Sign the IV with HMAC to ensure its integrity
     const hmacSignature = await window.crypto.subtle.sign("HMAC", macKey, iv);
@@ -296,7 +302,7 @@ async function sendMessage() {
     console.log("encryption test:")
     console.log("encryptedDataB64: ", encryptedDataB64);
     console.log("hmacSignatureB64", hmacSignatureB64);
-    console.log("iv:", iv);
+    console.log("iv:", arrayBufferToBase64(iv));
 //test
     // Send the encrypted message and HMAC signature to the server
     const response = await fetch('/api/send_message', {
@@ -490,7 +496,6 @@ function fetchMessages() {
         .then(response => response.json())
         .then(data => {
             data.messages.forEach(message => {
-                console.log("displaymessages being called");
                 displayMessage(message);
                 lastMessageId = message.message_id;
             });
