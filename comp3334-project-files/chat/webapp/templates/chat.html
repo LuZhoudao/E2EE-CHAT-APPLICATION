@@ -336,7 +336,6 @@ async function sendMessage() {
     if (!response.ok) {
         throw new Error('Failed to send encrypted message to the server');
     }
-    lastMessageId++;
     console.log("Encrypted message and HMAC signature sent to server");
     document.getElementById('messageInput').value = ''; // Clear the input field after sending
 }
@@ -579,6 +578,7 @@ async function displayMessage(encryptedMessage) {
         return;
     }
 
+    console.log("point of REAL display")
     // Append decrypted message to chat
     const messagesContainer = document.getElementById('messages');
     const messageElement = document.createElement('div');
