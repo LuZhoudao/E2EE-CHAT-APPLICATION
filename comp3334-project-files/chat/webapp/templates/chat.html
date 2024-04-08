@@ -69,15 +69,9 @@ async function fetchAndSetupEncryptionWithPeer(peerId) {
 }
 
 
-// Placeholder function to send public key to server
 
-//async function checkAndGenerateKeys() {
-    // Check if a private key already exists in localStorage. no need now
 async function GenerateKeypair() {
-    //const existingPrivateKey = localStorage.getItem('privateKey');
 
-    //if (!existingPrivateKey) {
-        // No existing private key, generate a new key pair
         const keyPair = await window.crypto.subtle.generateKey(
             {
                 name: "ECDH",
@@ -109,7 +103,7 @@ async function GenerateKeypair() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                // 'Authorization': 'Bearer <token_here>',
+               
             },
             body: JSON.stringify({ public_key: publicKeyBase64 }),
         });
@@ -118,9 +112,6 @@ async function GenerateKeypair() {
             throw new Error('Failed to send public key to server');
         }
         console.log('Public key sent successfully');
-    //} else {
-    //    console.log('Existing private key found, no need to generate a new one');
-    //}
 }
 
 // Call the function to check for an existing private key or generate a new one
@@ -182,11 +173,11 @@ if (myID < peer_id) {
     return { aesKey, macKey };
 }
 
-
+let salt =new Uint8Array(16);
     
 async function startKeyDerivation() {
     const sharedSecret = await deriveSharedSecret(); 
-    const salt =new Uint8Array(16); // Generate a unique salt 
+    //const salt =new Uint8Array(16); // Generate a unique salt 
     localStorage.setItem("salt",salt)   
     console.log(arrayBufferToBase64(salt))
     const { aesKey, macKey } = await deriveKeys(sharedSecret, salt, peer_id);
@@ -234,11 +225,7 @@ async function generateIV() {
     return incrementedIVBase64;
 }
 
-
-
 // Assuming aesKey and macKey are already derived and available
-// ivCounters should be managed globally to track IVs for each chat session
-
 async function storeKeys(aesKey, macKey, peer_id) {
     // Export the AES-GCM encryption key
     const aesKeyExported = await window.crypto.subtle.exportKey("jwk", aesKey);
@@ -259,7 +246,6 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.setItem('peer_id', selectedUserId);
     });
 
-    // Other initialization code can go here
 });
 
 async function sendMessage() {
@@ -316,7 +302,6 @@ async function sendMessage() {
     console.log("ivB64:", arrayBufferToBase64(iv));
     console.log("encryptedDataB64: ", encryptedDataB64);
     console.log("hmacSignatureB64", hmacSignatureB64);
-    
 //test
     // Send the iv,encrypted message and HMAC signature to the server
     const response = await fetch('/api/send_message', {
@@ -338,9 +323,6 @@ async function sendMessage() {
     console.log("Encrypted message and HMAC signature sent to server");
     document.getElementById('messageInput').value = ''; // Clear the input field after sending
 }
-
-
-
 // Helper function to convert Base64 to ArrayBuffer
 function base64ToArrayBuffer(base64) {
     const binaryString = window.atob(base64);
@@ -366,9 +348,14 @@ function arrayBufferToBase64(buffer) {
 
 // Refresh Keys function placeholder
 function refreshKeys() {
-    console.log('Refresh keys functionality will be implemented here.');
+    console.log('refreshKeys called!!');
+    console.log('salt:',salt)
+    //store current pair of keys into the localstorage?
 
-    // Placeholder for refresh functionality
+    // #salt should up up 
+    console.log("AES and MAC key REderiviation!!")
+    startKeyDerivation();
+
 }
 
 // Populate users function
