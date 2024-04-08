@@ -128,7 +128,7 @@ async function GenerateKeypair() {
 GenerateKeypair().catch(console.error);
 
 
-async function deriveKeys(sharedSecretBits, salt, peer_id, direction = 'to') {
+async function deriveKeys(sharedSecretBits, salt, peer_id) {
     // Import the raw shared secret bits as a CryptoKey for use with HKDF
     const sharedSecretKey = await window.crypto.subtle.importKey(
         "raw",
@@ -140,10 +140,10 @@ async function deriveKeys(sharedSecretBits, salt, peer_id, direction = 'to') {
 
 let info = 'none'
 if (myID < peer_id) {
-  info = `CHAT_KEY_USER${myID}${direction}${peer_id}`;
+  info = `CHAT_KEY_USER${myID}to${peer_id}`;
   console.log("key info generated:",info);
 } else if (myID > peer_id) {
-    info = `CHAT_KEY_USER${peer_id}${direction}${myID}`;
+    info = `CHAT_KEY_USER${peer_id}to${myID}`;
     console.log("key info generated:",info)
 } else {
   console.error("error when comparing peer_id and myID")
@@ -186,14 +186,16 @@ if (myID < peer_id) {
     
 async function startKeyDerivation() {
     const sharedSecret = await deriveSharedSecret(); 
-    const salt =new Uint8Array(16); // Generate a unique salt    
+    const salt =new Uint8Array(16); // Generate a unique salt 
+    localStorage.setItem("salt",salt)   
     console.log(arrayBufferToBase64(salt))
-    const { aesKey, macKey } = await deriveKeys(sharedSecret, salt, peer_id, 'to');
+    const { aesKey, macKey } = await deriveKeys(sharedSecret, salt, peer_id);
     storeKeys(aesKey,macKey,peer_id);
 }
 
 
 async function generateIV() {
+    console.log("generateIV() being called!!");
     const latestIVResponse = await fetch(`/api/latest_iv/${peer_id}`);
     const responseData = await latestIVResponse.json();
     let latestIVBase64 = responseData.iv;
@@ -311,11 +313,12 @@ async function sendMessage() {
    
 //test
     console.log("encryption test:")
+    console.log("ivB64:", arrayBufferToBase64(iv));
     console.log("encryptedDataB64: ", encryptedDataB64);
     console.log("hmacSignatureB64", hmacSignatureB64);
-    console.log("iv:", arrayBufferToBase64(iv));
+    
 //test
-    // Send the encrypted message and HMAC signature to the server
+    // Send the iv,encrypted message and HMAC signature to the server
     const response = await fetch('/api/send_message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -421,14 +424,9 @@ async function deriveSharedSecret() {
     // Retrieve the Base64-encoded keys from localStorage
     const privateKeyBase64 = localStorage.getItem('privateKey');
     const peerPublicKeyBase64 = localStorage.getItem(`publicKey_${peer_id}`);
-    //console.log("Private Key Base64:", privateKeyBase64);//test
-    //console.log(`Peer Public Key Base64 for ${peer_id}:`, peerPublicKeyBase64);//test
-    // Decode the Base64 strings to ArrayBuffers
     const privateKeyArrayBuffer = base64ToArrayBuffer(privateKeyBase64);
     const peerPublicKeyArrayBuffer = base64ToArrayBuffer(peerPublicKeyBase64);
-    //console.log("Private Key ArrayBuffer:", privateKeyArrayBuffer);//test
-    //console.log("Peer Public Key ArrayBuffer:", peerPublicKeyArrayBuffer);//test
-    // Import the private key
+
     const privateKey = await window.crypto.subtle.importKey(
         "pkcs8",
         privateKeyArrayBuffer,
@@ -503,7 +501,10 @@ function clearChatBox() {
 // Fetch messages from server
 function fetchMessages() {
     console.log("fetchmessages() being called!!");
-    if (peer_id === -1) return; // Exit if no peer selected
+    if (peer_id === -1) {
+       
+        return;
+    } // Exit if no peer selected
     fetch(`/fetch_messages?last_message_id=${lastMessageId}&peer_id=${peer_id}`)
         .then(response => response.json())
         .then(data => {
@@ -595,7 +596,7 @@ function eraseChat() {
     if (!confirm('Are you sure you want to erase the chat with '+userInfo[peer_id]+'?')) return; // Confirmation before erasing
 
     fetch(`/erase_chat`, {
-        method: 'POST',  // A REST API should use POST if it leads to modifications
+        method: 'POST',  
         headers: {
             'Content-Type': 'application/json', 
         },
