@@ -88,7 +88,7 @@ async function GenerateKeypair() {
         );
         const privateKeyBase64 = window.btoa(String.fromCharCode(...new Uint8Array(exportedPrivateKey)));
         localStorage.setItem('privateKey', privateKeyBase64);
-        //console.log('Generated and stored private key:', privateKeyBase64); //test
+        console.log('Generated and stored private key:', privateKeyBase64); 
 
         // Export the public key, convert it to Base64, and prepare to send it to the server
         const exportedPublicKey = await window.crypto.subtle.exportKey(
@@ -204,7 +204,6 @@ async function startKeyDerivation() {
 
 
 async function generateIV() {
-    console.log("generateIV() being called!!");
     const latestIVResponse = await fetch(`/api/latest_iv/${peer_id}`);
     const responseData = await latestIVResponse.json();
     let latestIVBase64 = responseData.iv;
@@ -213,7 +212,6 @@ async function generateIV() {
     let ivBytes;
     try {
         ivBytes = Uint8Array.from(atob(latestIVBase64), c => c.charCodeAt(0));
-        console.log("latestIV fetched from database: ",latestIVBase64) //it is initially AAAAA...==
 
     } catch (error) {
         console.error("Error decoding IV from Base64:", error);
@@ -298,7 +296,6 @@ async function sendMessage() {
 
     const associatedData = `CHAT_MSG_FROM_${myID}_TO_${peer_id}`; //should test it further
 
-    console.log("associatedData(Encrypt): ",associatedData)
     // Encrypt the message
     const encryptedData = await window.crypto.subtle.encrypt(
         {
@@ -314,13 +311,10 @@ async function sendMessage() {
     // Convert encrypted data and HMAC signature to Base64 for sending
     const encryptedDataB64 = arrayBufferToBase64(encryptedData);
     const hmacSignatureB64 = arrayBufferToBase64(hmacSignature);
-   
-//test
-    console.log("encryption test:")
-    console.log("ivB64:", arrayBufferToBase64(iv));
-    console.log("encryptedDataB64: ", encryptedDataB64);
-    console.log("hmacSignatureB64", hmacSignatureB64);
-//test
+    hmac_hex = arrayBufferToHex(hmacSignature)
+
+    console.log("Encryption: iv=",ivb64,",hmac=",hmac_hex,",ciphertext=",encryptedDataB64,",associatedData=",associatedData);
+
     // Send the iv,encrypted message and HMAC signature to the server
     const response = await fetch('/api/send_message', {
         method: 'POST',
@@ -420,7 +414,7 @@ document.getElementById('userList').addEventListener('change', async(event) => {
         // Store the fetched public key in localStorage
         localStorage.setItem(`publicKey_${peer_id}`, data.public_key);
         if(!localStorage.getItem('aesKey') || !localStorage.getItem('macKey')) {
-            console.log("no aeskey/mackey found in localstorage, regenerate!!")
+            console.log("no aeskey/mackey found in localstorage, regenerate.")
             startKeyDerivation();
         }
         // Proceed to setup encryption or any other necessary steps
@@ -496,14 +490,18 @@ async function deriveSharedSecret() {
     // Convert the hash to a Base64 string to make it easier to compare or transmit
     const hashBase64 = arrayBufferToBase64(hashBuffer);
 
-    console.log("Hash of Derived Bits: ", hashBase64);
+    console.log("Shared secret: ", hashBase64);
     //console.log("Derived shared secret:", sharedSecret);
     //console.log("Derived bits: ", bits);
     return bits;
     //return sharedSecret;
 }
 
-
+function arrayBufferToHex(buffer) {
+    const byteArray = new Uint8Array(buffer);
+    const hexString = byteArray.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
+    return hexString;
+}
 
 // Clear chat box
 function clearChatBox() {
@@ -512,7 +510,6 @@ function clearChatBox() {
 
 // Fetch messages from server
 function fetchMessages() {
-    console.log("fetchmessages() being called!!");
     if (peer_id === -1) {
        
         return;
@@ -528,9 +525,9 @@ function fetchMessages() {
         .catch(error => console.error('Error fetching messages:', error));
 }
 
+let hmacflag = false;
 // Display a single message
 async function displayMessage(encryptedMessage) {
-    console.log("displayMessage() being called!!")
     if (!encryptedMessage) {
         return;
     }
@@ -545,15 +542,9 @@ async function displayMessage(encryptedMessage) {
     const ivArrayBuffer = base64ToArrayBuffer(encryptedMessage.iv);
     const hmacArrayBuffer = base64ToArrayBuffer(encryptedMessage.hmac);
     const ciphertextArrayBuffer = base64ToArrayBuffer(encryptedMessage.ciphertext);
-//test
-    console.log("decryption test:")
-    console.log("Received IV (Base64):", encryptedMessage.iv);
-    console.log("Received HMAC (Base64):", encryptedMessage.hmac);
-    console.log("Received Ciphertext (Base64):", encryptedMessage.ciphertext);
-    //console.log("IV ArrayBuffer:", ivArrayBuffer);
-    //console.log("HMAC ArrayBuffer:", hmacArrayBuffer);
-    //console.log("Ciphertext ArrayBuffer:", ciphertextArrayBuffer);
-//test
+
+    hmac_hex = arrayBufferToHex(hmacArrayBuffer);
+    
 
     // Verify IV HMAC to ensure it hasn't been tampered with
     const isHmacValid = await window.crypto.subtle.verify(
@@ -564,14 +555,17 @@ async function displayMessage(encryptedMessage) {
     );
     
     if (!isHmacValid) {
+        hmacflag = false;
         console.error("HMAC verification failed: data integrity compromised.");
         return;
+    }else{
+        hmacflag = true;
     }
 
     // Decrypt the message
     let plaintext;
     const associatedData = `CHAT_MSG_FROM_${peer_id}_TO_${myID}`;
-    console.log("associatedData(Decrypt): ",associatedData)
+    console.log("Decryption:","Hmac_Valid=",hmacflag,",iv=",encryptedMessage.iv,",hmac=",hmac_hex,",ciphertext=",encryptedMessage.ciphertext,",associatedData=",associatedData);
     try {
         const decryptedData = await window.crypto.subtle.decrypt(
             { name: "AES-GCM", iv: ivArrayBuffer },
@@ -585,7 +579,6 @@ async function displayMessage(encryptedMessage) {
         return;
     }
 
-    console.log("point of REAL display")
     // Append decrypted message to chat
     const messagesContainer = document.getElementById('messages');
     const messageElement = document.createElement('div');
