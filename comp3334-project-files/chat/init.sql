@@ -15,6 +15,7 @@ CREATE TABLE users (
     public_key VARCHAR(2048), -- ECDH public key for secure key exchange
     iv VARBINARY(32), -- For AES CBC mode encryption of user info (optional, based on your security design)
     totp_secret VARCHAR(16) NOT NULL,
+    memorized_secret VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

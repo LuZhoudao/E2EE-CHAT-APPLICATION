@@ -33,14 +33,18 @@
                 <label for="password">Password</label>
                 <input type="password" class="form-control" id="password" name="password" required>
             </div>
-            <div
-                class="g-recaptcha"
-                data-sitekey="6LeMXbQpAAAAAOXcpk6Fk_J3RqaSW6MAOJxWY6AL"
-                data-theme="light" data-size="normal"
-                data-callback="verify"
-                data-expired-callback="expired"
-                data-error-callback="error">
+
+            <div class="g-recaptcha"
+                 data-sitekey="6LeMXbQpAAAAAOXcpk6Fk_J3RqaSW6MAOJxWY6AL"
+                 data-theme="light"
+                 data-size="normal"
+                 data-callback="verify"
+                 data-expired-callback="expired"
+                 data-error-callback="error"
+                 data-badge="inline"
+                 data-tabindex="0">
             </div>
+
             <div class="text-center mb-3">
                 <button type="submit" class="btn btn-primary">Login</button>
             </div>

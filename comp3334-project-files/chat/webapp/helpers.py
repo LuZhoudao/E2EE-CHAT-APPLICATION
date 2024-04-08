@@ -8,6 +8,8 @@ import onetimepass as otp
 from wtforms import StringField
 from wtforms.validators import DataRequired
 import base64
+import re
+
 
 
 # https://pycryptodome.readthedocs.io/en/latest/src/cipher/classic.html#cbc-mode
@@ -31,3 +33,32 @@ def get_totp_uri(username, totp_secret):
 
 def verify_totp(totp_secret):
     return otp.valid_totp(StringField('Token', validators=[DataRequired()]), totp_secret)
+
+
+def check_password_strength(password):
+    # Standard 1: Length > 8
+    if len(password) < 8:
+        return "Password must be at least 8 characters long."
+
+    # Standard 2: Combining digit, lower case, and upper case
+    has_digit = any(char.isdigit() for char in password)
+    has_lower = any(char.islower() for char in password)
+    has_upper = any(char.isupper() for char in password)
+
+    if not (has_digit and has_lower and has_upper):
+        return "Password must contain at least one digit, one lowercase letter, and one uppercase letter."
+
+    # Standard 3: Avoid repeating patterns (e.g., "aaaaaa" or "123123")
+    if re.match(r"^(.)\1+$", password):
+        return "Avoid repeating patterns in your password."
+
+    # Standard 4: Check against a list of common passwords
+    with open("./common_passwords.txt") as common_file: # assume that the current directory is webapp
+        common_password_list = [line.strip().lower() for line in common_file]
+
+    if password.lower() in common_password_list:
+        return "Avoid using common passwords."
+
+    return None
+
+

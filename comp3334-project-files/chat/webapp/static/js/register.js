@@ -31,6 +31,7 @@ async function agreeSharedSecretKey() {
     document.getElementById('registrationForm').submit();
 }
 
+
 function validateInputClientSide(form) {
     
     /**
