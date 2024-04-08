@@ -191,6 +191,7 @@ function incrementUint8Array(value) {
 }
 
 let salt =new Uint8Array(16);
+let keynum = 0; //store key start from index 0
     
 async function startKeyDerivation() {
     const sharedSecret = await deriveSharedSecret(); 
@@ -366,8 +367,14 @@ function arrayBufferToBase64(buffer) {
 function refreshKeys() {
     console.log('refreshKeys called!!');
     incrementUint8Array(salt);  //salt ++
+    
     console.log('salt:',salt);
     //store current pair of keys into the localstorage?
+    const aesKey=localStorage.getItem('aesKey');
+    const macKey=localStorage.getItem('macKey');
+    localStorage.setItem(`aesKey_${keynum}`,aesKey);
+    localStorage.setItem(`macKey_${keynum}`,macKey);
+    keynum++; //keynum ++
 
     // #salt should up up 
     console.log("AES and MAC key REderiviation!!");
