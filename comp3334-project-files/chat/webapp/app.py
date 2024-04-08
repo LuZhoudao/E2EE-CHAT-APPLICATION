@@ -503,7 +503,7 @@ def forgot_password():
         if not result['success']:
             error = 'Do the human machine authentication again.'
             flash(error, 'danger')
-            return redirect(url_for('reset_password'))
+            return redirect(url_for('forgot_password'))
 
         # retrieve the stored message:
         cur = mysql.connection.cursor()

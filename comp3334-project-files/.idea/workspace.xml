@@ -4,7 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="16dfb8d8-3689-4496-9271-943760b0a3ac" name="Changes" comment="" />
+    <list default="true" id="16dfb8d8-3689-4496-9271-943760b0a3ac" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/chat/webapp/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/chat/webapp/app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/chat/webapp/sessions/15c97d754dddc274e70ace511873ac1e" beforeDir="false" afterPath="$PROJECT_DIR$/chat/webapp/sessions/15c97d754dddc274e70ace511873ac1e" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/chat/webapp/sessions/2029240f6d1128be89ddc32729463129" beforeDir="false" afterPath="$PROJECT_DIR$/chat/webapp/sessions/2029240f6d1128be89ddc32729463129" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -13,8 +17,25 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
   </component>
+  <component name="ProjectId" id="2epUsWrsBpWTBnrn5XAQ2DGlIMK" />
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="a8f5e6bc-f7a3-42f8-ad44-2a574d745341" name="Changes" comment="" />
+      <created>1712601219307</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1712601219307</updated>
+    </task>
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
