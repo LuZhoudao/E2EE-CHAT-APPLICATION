@@ -16,7 +16,7 @@ are permitted provided that the original author is acknowledged. See JavaScript 
 </head>
 <body>
 <div class="container mt-4">
-    <h2>Chat Application <small> - (<a href="/logout">Logout</a>)</small></h2>
+    <h2>Chat Application <small> - (<a href="/logout" id="logoutLink">Logout</a>)</small></h2>
     <div class="chat-box">
         <!-- Chat messages container -->
         <div id="messages" style="border:1px solid #ccc; height:300px; margin-bottom:20px; overflow-y:scroll; padding:10px;"></div>
@@ -180,6 +180,14 @@ if (myID < peer_id) {
     console.log("Derived MAC Key:", macKey);
 
     return { aesKey, macKey };
+}
+
+function incrementUint8Array(value) {
+    for (let i = value.length - 1; i >= 0; i--) {
+        if (++value[i]) { // Increment the current byte, if the result is not 0, break (no carry over)
+            break;
+        }
+    }
 }
 
 let salt =new Uint8Array(16);
@@ -358,11 +366,12 @@ function arrayBufferToBase64(buffer) {
 // Refresh Keys function placeholder
 function refreshKeys() {
     console.log('refreshKeys called!!');
-    console.log('salt:',salt)
+    incrementUint8Array(salt);  //salt ++
+    console.log('salt:',salt);
     //store current pair of keys into the localstorage?
 
     // #salt should up up 
-    console.log("AES and MAC key REderiviation!!")
+    console.log("AES and MAC key REderiviation!!");
     startKeyDerivation();
 
 }
@@ -613,6 +622,25 @@ function eraseChat() {
         console.error('Error erasing chat:', error);
     });
 }
+
+document.addEventListener('DOMContentLoaded', function() { //clear cache when logout
+    
+    const logoutLink = document.getElementById('logoutLink');
+    if (logoutLink) {
+        logoutLink.addEventListener('click', function(e) {
+            // Prevent the default link behavior
+            e.preventDefault();
+            // Clear localStorage
+            localStorage.clear();
+            console.log('Logged out. Local storage cleared.');
+            window.location.href = '/logout';
+        });
+    }
+});
+
+
+
+
 
 </script>
 </body>

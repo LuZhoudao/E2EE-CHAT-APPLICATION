@@ -221,6 +221,7 @@ def erase_chat():
     else:
         return jsonify({'status': 'failure'}), 200
 
+
 @app.route('/logout')
 def logout():
     session.clear()
@@ -406,7 +407,6 @@ def validate_security_info():
     ## implement here 
 
     return redirect(url_for('forgot_password'))
-
 
 bcrypt = Bcrypt(app)
 if __name__ == '__main__':
