@@ -503,7 +503,7 @@ function clearChatBox() {
 // Fetch messages from server
 function fetchMessages() {
     console.log("fetchmessages() being called!!");
-    if (peer_id === -1 || lastMessageId == -1) return; // Exit if no peer selected
+    if (peer_id === -1) return; // Exit if no peer selected
     fetch(`/fetch_messages?last_message_id=${lastMessageId}&peer_id=${peer_id}`)
         .then(response => response.json())
         .then(data => {
