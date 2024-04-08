@@ -116,7 +116,11 @@ async function GenerateKeypair() {
 
 // Call the function to check for an existing private key or generate a new one
 //checkAndGenerateKeys().catch(console.error);
-GenerateKeypair().catch(console.error);
+
+if (!localStorage.getItem('privateKey')){
+    GenerateKeypair().catch(console.error);
+    console.log("no privateKey found in localstorage, regenerate new keykepar!");
+}
 
 
 async function deriveKeys(sharedSecretBits, salt, peer_id) {
@@ -419,7 +423,7 @@ async function deriveSharedSecret() {
     const peerPublicKeyBase64 = localStorage.getItem(`publicKey_${peer_id}`);
     const privateKeyArrayBuffer = base64ToArrayBuffer(privateKeyBase64);
     const peerPublicKeyArrayBuffer = base64ToArrayBuffer(peerPublicKeyBase64);
-
+    
     const privateKey = await window.crypto.subtle.importKey(
         "pkcs8",
         privateKeyArrayBuffer,
