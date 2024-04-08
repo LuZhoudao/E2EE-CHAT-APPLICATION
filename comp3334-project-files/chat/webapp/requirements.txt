@@ -12,3 +12,5 @@ onetimepass
 pyqrcode
 flask_login
 wtforms
+flask_wtf
+requests
