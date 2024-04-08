@@ -138,17 +138,24 @@ async function deriveKeys(sharedSecretBits, salt, peer_id, direction = 'to') {
         ["deriveKey"]
     );
 
-    // Define HKDF parameters
-    const baseInfo = `CHAT_KEY_USER${direction}${peer_id}`;
-    const encryptionInfo = `ENC`;
-    const macInfo = `MAC`;
+let info = 'none'
+if (myID < peer_id) {
+  info = `CHAT_KEY_USER${myID}${direction}${peer_id}`;
+  console.log("key info generated:",info);
+} else if (myID > peer_id) {
+    info = `CHAT_KEY_USER${peer_id}${direction}${myID}`;
+    console.log("key info generated:",info)
+} else {
+  console.error("error when comparing peer_id and myID")
+}
+
 
     // Derive the AES-GCM encryption key
     const aesKey = await window.crypto.subtle.deriveKey(
         {
             name: "HKDF",
             salt: salt,
-            info: new TextEncoder().encode(encryptionInfo),
+            info: new TextEncoder().encode(info),
             hash: "SHA-256"
         },
         sharedSecretKey, // Use the imported shared secret key here
@@ -161,7 +168,7 @@ async function deriveKeys(sharedSecretBits, salt, peer_id, direction = 'to') {
         {
             name: "HKDF",
             salt: salt,
-            info: new TextEncoder().encode(macInfo),
+            info: new TextEncoder().encode(info),
             hash: "SHA-256"
         },
         sharedSecretKey, // And also here
@@ -195,12 +202,14 @@ async function generateIV() {
     let ivBytes;
     try {
         ivBytes = Uint8Array.from(atob(latestIVBase64), c => c.charCodeAt(0));
+        console.log("latestIV fetched from database: ",latestIVBase64) //it is initially AAAAA...==
+
     } catch (error) {
         console.error("Error decoding IV from Base64:", error);
         // If decoding fails, initialize a new IV of 12 zero bytes
         ivBytes = new Uint8Array(12);
         
-        console.log("ivbytes at the very biginning: ",arrayBufferToBase64(ivBytes))
+        console.log("ivbytes regenerate: ",arrayBufferToBase64(ivBytes))
     }
     
     // Increment the IV
@@ -218,7 +227,8 @@ async function generateIV() {
     }
 
     // Re-encode IV to Base64
-    const incrementedIVBase64 = btoa(String.fromCharCode.apply(null, ivBytes));
+    //const incrementedIVBase64 = btoa(String.fromCharCode.apply(null, ivBytes));
+    const incrementedIVBase64 = arrayBufferToBase64(ivBytes)
     return incrementedIVBase64;
 }
 
@@ -280,7 +290,9 @@ async function sendMessage() {
     const iv = base64ToArrayBuffer(ivb64);
     const encoder = new TextEncoder();
 
-    const associatedData = 'CHAT_MSG_FROM_${myID}_TO_${peer_id}';
+    const associatedData = `CHAT_MSG_FROM_${myID}_TO_${peer_id}`; //should test it further
+
+    console.log("associatedData(Encrypt): ",associatedData)
     // Encrypt the message
     const encryptedData = await window.crypto.subtle.encrypt(
         {
@@ -490,6 +502,7 @@ function clearChatBox() {
 
 // Fetch messages from server
 function fetchMessages() {
+    console.log("fetchmessages() being called!!");
     if (peer_id === -1 || lastMessageId == -1) return; // Exit if no peer selected
     fetch(`/fetch_messages?last_message_id=${lastMessageId}&peer_id=${peer_id}`)
         .then(response => response.json())
@@ -504,9 +517,11 @@ function fetchMessages() {
 
 // Display a single message
 async function displayMessage(encryptedMessage) {
+    console.log("displayMessage() being called!!")
     if (!encryptedMessage) {
         return;
     }
+
     // Retrieve AES and MAC keys from localStorage and import them
     const aesKeyJwk = JSON.parse(localStorage.getItem('aesKey'));
     const macKeyJwk = JSON.parse(localStorage.getItem('macKey'));
@@ -542,7 +557,8 @@ async function displayMessage(encryptedMessage) {
 
     // Decrypt the message
     let plaintext;
-    const associatedData = 'CHAT_MSG_FROM_${myID}_TO_${peer_id}';
+    const associatedData = `CHAT_MSG_FROM_${peer_id}_TO_${myID}`;
+    console.log("associatedData(Decrypt): ",associatedData)
     try {
         const decryptedData = await window.crypto.subtle.decrypt(
             { name: "AES-GCM", iv: ivArrayBuffer },
