@@ -11,10 +11,14 @@ import base64
 from io import BytesIO
 import pyqrcode
 import onetimepass
+import requests
+
 
 app = Flask(__name__)
 
 # Configure secret key and Flask-Session
+# app.config['RECAPTCHA_PUBLIC_KEY'] = '6LeMXbQpAAAAAOXcpk6Fk_J3RqaSW6MAOJxWY6AL'
+# app.config['RECAPTCHA_PRIVATE_KEY'] = '6LeMXbQpAAAAAP0CTcYJcAk16IhutPwNVF5dnOs-'
 app.config['SECRET_KEY'] = b'9\x13\x07j\xf9\x19\xff\x94\xb6\x04\x91\xf31T\x96c'
 app.config['SESSION_TYPE'] = 'filesystem'  # Options: 'filesystem', 'redis', 'memcached', etc.
 app.config['SESSION_PERMANENT'] = False
@@ -60,19 +64,34 @@ def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
+        recaptcha_response = request.form['g-recaptcha-response']
         
         cur = mysql.connection.cursor()
         cur.execute("SELECT user_id, password FROM users WHERE username = %s", [username])
         account = cur.fetchone()
-        
-        if account and bcrypt.check_password_hash(account[1], password):
-            session['user_id_temp'] = account[0]  # Temporarily store user ID
-            session['username_password_verified'] = True
-            return redirect(url_for('verify_totp'))  # Redirect to TOTP verification
+        cur.close()
+        # 向 reCAPTCHA 服务器发送验证请求
+        data = {
+            'secret': '6LeMXbQpAAAAAP0CTcYJcAk16IhutPwNVF5dnOs-',
+            'response': recaptcha_response
+        }
+        response = requests.post('https://www.google.com/recaptcha/api/siteverify', data=data)
+        print(response)
+        result = response.json()
+        if result['success']:
+            # reCAPTCHA 验证成功
+            if account and bcrypt.check_password_hash(account[1], password):
+                session['user_id_temp'] = account[0]  # Temporarily store user ID
+                session['username_password_verified'] = True
+                return redirect(url_for('verify_totp'))  # Redirect to TOTP verification
+            else:
+                error = 'Invalid username or password or token.'
+                flash(error, 'danger')
+                pass
         else:
-            error = 'Invalid username or password or token.'
-            flash(error,'danger')
-            pass
+            # reCAPTCHA 验证失败
+            return render_template('login.html')
+
     # Show login form
     return render_template('login.html')
 
