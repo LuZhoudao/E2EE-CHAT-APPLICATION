@@ -4,13 +4,15 @@ from flask_session import Session
 import yaml
 from flask_bcrypt import Bcrypt
 from Crypto.Cipher import AES
-from helpers import AESencrypt, AESdecrypt, get_totp_uri, verify_totp
+from helpers import AESencrypt, AESdecrypt, get_totp_uri, verify_totp,check_password_strength
 from base64 import b64encode, b64decode
 import os
 import base64
 from io import BytesIO
 import pyqrcode
 import onetimepass
+
+import requests
 
 app = Flask(__name__)
 
@@ -29,10 +31,16 @@ app.config.update(
     MYSQL_PASSWORD=db_config['mysql_password'],
     MYSQL_HOST=db_config['mysql_host']
 )
+
+
 mysql = MySQL(app)
+# print(mysql.connect)
 
 # Initialize the Flask-Session
 Session(app)
+
+MAX_USERNAME_LEN = 255
+
 
 @app.route('/')
 def index():
@@ -40,6 +48,7 @@ def index():
         return redirect(url_for('login'))
     sender_id = session['user_id']
     return render_template('chat.html', sender_id=sender_id)
+
 
 @app.route('/users')
 def users():
@@ -59,32 +68,47 @@ def users():
 def login():
     if request.method == 'POST':
         username = request.form['username']
+        username = username[:MAX_USERNAME_LEN] if len(username) > MAX_USERNAME_LEN else username
         password = request.form['password']
-        
+        recaptcha_response = request.form['g-recaptcha-response']
+
         cur = mysql.connection.cursor()
         cur.execute("SELECT user_id, password FROM users WHERE username = %s", [username])
         account = cur.fetchone()
-        
-        if account and bcrypt.check_password_hash(account[1], password):
-            session['user_id_temp'] = account[0]  # Temporarily store user ID
-            session['username_password_verified'] = True
-            return redirect(url_for('verify_totp'))  # Redirect to TOTP verification
+        cur.close()
+
+        # 向 reCAPTCHA 服务器发送验证请求
+        data = {
+            'secret': '6LeMXbQpAAAAAP0CTcYJcAk16IhutPwNVF5dnOs-',
+            'response': recaptcha_response
+        }
+        response = requests.post('https://www.google.com/recaptcha/api/siteverify', data=data)
+        result = response.json()
+        if result['success']:
+            # reCAPTCHA 验证成功
+            if account and bcrypt.check_password_hash(account[1], password):
+                session['user_id_temp'] = account[0]  # Temporarily store user ID
+                session['username_password_verified'] = True
+                return redirect(url_for('verify_totp'))  # Redirect to TOTP verification
+            else:
+                error = 'Invalid username or password or token.'
+                flash(error, 'danger')
+                pass
         else:
-            error = 'Invalid username or password or token.'
-            flash(error,'danger')
-            pass
+            error = 'Do the human machine authentication again.'
+            flash(error, 'danger')
+            # reCAPTCHA 验证失败
+            return render_template('login.html')
+
     # Show login form
     return render_template('login.html')
 
 
-
-
 @app.route('/recover', methods=['GET', 'POST'])
 def recover_account():
-
-# If implementing account recovery, use security questions to verify user identity before allowing password reset.
-    
+    # If implementing account recovery, use security questions to verify user identity before allowing password reset.
     pass
+
 
 @app.route('/fetch_messages')
 def fetch_messages():
@@ -104,6 +128,7 @@ def fetch_messages():
         # Return a JSON error response
         return jsonify({'error': 'Internal Server Error'}), 500
 
+
 def fetch_messages_from_db(peer_id, last_message_id):
     query = """
     SELECT message_id, sender_id, receiver_id, ciphertext, iv, hmac, created_at 
@@ -114,12 +139,12 @@ def fetch_messages_from_db(peer_id, last_message_id):
     ORDER BY message_id ASC
     """
     values = (session['user_id'], peer_id, peer_id, session['user_id'], last_message_id)
-    
+
     cur = mysql.connection.cursor()
     cur.execute(query, values)
     messages = cur.fetchall()
     cur.close()
-    
+
     return [{
         'message_id': msg[0],
         'sender_id': msg[1],
@@ -130,11 +155,13 @@ def fetch_messages_from_db(peer_id, last_message_id):
         'created_at': msg[6].strftime("%Y-%m-%d %H:%M:%S"),
     } for msg in messages]
 
+
 def base64_to_hex(base64_str):
     # Decode the Base64 string to bytes
     byte_data = base64.b64decode(base64_str)
     # Convert bytes to hexadecimal string and return
     return byte_data.hex()
+
 
 @app.route('/api/send_message', methods=['POST'])
 def send_message():
@@ -147,24 +174,24 @@ def send_message():
 
     # Extract encrypted data from the request
     sender_id = session['user_id']
-    receiver_id = request.json['peer_id'] 
+    receiver_id = request.json['peer_id']
     ciphertext = request.json['ciphertext']
     iv_base64 = request.json['iv']
     hmac_base64 = request.json['hmac']
 
     iv = base64_to_hex(iv_base64)
     hmac = base64_to_hex(hmac_base64)
-    
 
     # simply prints the received data
     print(f"Received encrypted message from {sender_id} to {receiver_id}")
     print(f"Ciphertext: {ciphertext}")
     print(f"IV: {iv}")
     print(f"HMAC: {hmac}")
-    
+
     save_encrypted_message(sender_id, receiver_id, ciphertext, iv, hmac)
-    
+
     return jsonify({'status': 'success', 'message': 'Encrypted message sent'}), 200
+
 
 def save_encrypted_message(sender_id, receiver_id, ciphertext, iv, hmac):
     try:
@@ -172,7 +199,7 @@ def save_encrypted_message(sender_id, receiver_id, ciphertext, iv, hmac):
                    (sender_id, receiver_id, ciphertext, iv, hmac) 
                    VALUES (%s, %s, %s, %s, %s)'''
         values = (sender_id, receiver_id, ciphertext, iv, hmac)
-        
+
         cur = mysql.connection.cursor()
         cur.execute(query, values)
         mysql.connection.commit()
@@ -229,25 +256,61 @@ def erase_chat():
     else:
         return jsonify({'status': 'failure'}), 200
 
+
 @app.route('/logout')
 def logout():
     session.clear()
     flash('You have been successfully logged out.', 'info')  # Flash a logout success message
     return redirect(url_for('index'))
-    
+
+
+
+
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    print(request)
     if request.method == 'GET':
         # Display the registration form
         return render_template('register.html')
-    elif request.method == 'POST':
-        print(request.form)
+    else:
+        # print(request.form)
         # Process the form data and register the user
         username = request.form['username']
+        username = username[:MAX_USERNAME_LEN] if len(username) > MAX_USERNAME_LEN else username
         password = request.form['password']
         public_key = request.form['public_key']  # Make sure you have an input for this in your form
         security_question = request.form['securityQuestion']
+        retyped_password = request.form["retyped_password"]
         security_answer = request.form['securityAnswer']
+        memorized_secret =  request.form['memorizedSecret']
+        ### memorizedSecret ???
+
+
+        if password != retyped_password:
+            flash("Different passwords, please input again", 'danger')
+            return render_template('register.html')
+
+
+        recaptcha_response = request.form['g-recaptcha-response']
+
+        # 向 reCAPTCHA 服务器发送验证请求
+        data = {
+            'secret': '6LeMXbQpAAAAAOXcpk6Fk_J3RqaSW6MAOJxWY6AL',
+            'response': recaptcha_response
+        }
+        response = requests.post('https://www.google.com/recaptcha/api/siteverify', data=data)
+        result = response.json()
+        if not result['success']:
+            error = 'Do the human machine authentication again.'
+            flash(error, 'danger')
+            return redirect(url_for('register'))
+
+        # password strengh check
+        error_message = check_password_strength(password)
+        if error_message is not None:
+            flash(error_message,"danger")
+            return redirect(url_for('register'))
 
         # Hash the password
         hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
@@ -259,32 +322,46 @@ def register():
         cur.close()
         if result:
             length = len(result[0])
-            iv = bytes((int.from_bytes(result[0], byteorder='big')+1).to_bytes(length, byteorder='big'))
+            iv = bytes((int.from_bytes(result[0], byteorder='big') + 1).to_bytes(length, byteorder='big'))
         else:
             iv = os.urandom(16)
         cur.close()
         encrypted_question = AESencrypt(app.config['SECRET_KEY'], iv, security_question.encode())
-        #decrypted_question = AESdecrypt(app.config['SECRET_KEY'], iv, security_question)
+        # decrypted_question = AESdecrypt(app.config['SECRET_KEY'], iv, security_question)
         encrypted_answer = AESencrypt(app.config['SECRET_KEY'], iv, security_answer.encode())
-        #decrypted_answer = AESdecrypt(app.config['SECRET_KEY'], iv, security_answer)
+        # decrypted_answer = AESdecrypt(app.config['SECRET_KEY'], iv, security_answer)
+        encrypted_secret = AESencrypt(app.config['SECRET_KEY'], iv, memorized_secret.encode())
 
         try:
             cur = mysql.connection.cursor()
-            totp_secret = base64.b32encode(os.urandom(10)).decode('utf-8')
-            cur.execute("INSERT INTO users (username, password, security_question, security_answer, public_key, iv, totp_secret) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                        (username, hashed_password, encrypted_question, encrypted_answer, public_key, iv, totp_secret))
+            totp_secret = base64.b32encode(os.urandom(10)).decode('utf-8')  ### ?
+
+            # protect the indexing
+            username = username[:MAX_USERNAME_LEN] if len(username) > MAX_USERNAME_LEN else username
+            cur.execute(
+                "SELECT user_id FROM users WHERE username=%s",
+                [username]) ## !
+            the_user =  cur.fetchone()
+            user_exist = the_user is not None
+
+            if user_exist:
+                flash('Username already exists. Try another one.', 'success')
+                return redirect(url_for('register'))
+
+            cur.execute(
+                "INSERT INTO users (username, password, security_question, security_answer, public_key, iv, totp_secret,memorized_secret) VALUES (%s, %s, %s, %s, %s, %s, %s,%s)",
+                (username, hashed_password, encrypted_question, encrypted_answer, public_key, iv, totp_secret,encrypted_secret))
             mysql.connection.commit()
             cur.close()
+
             flash('You are now registered.', 'success')
             session['username'] = username
             return redirect(url_for('qr'))
-            #flash('Registration successful! Please login.', 'success')
-        except Exception as e:
-            flash(str(e), 'danger')  # Handle errors like duplicate username
-        # finally:
-        #     cur.close()
 
-        return redirect(url_for('login'))
+        except Exception as e:
+            flash(f"Unexpected server errors:{str(e)}","danger")
+
+        return redirect(url_for('register'))
 
 
 @app.route('/update_public_key', methods=['POST'])
@@ -311,11 +388,8 @@ def update_public_key():
         return jsonify({'error': str(e)}), 500
 
 
-
-
 @app.route('/get_public_key/<user_id>', methods=['GET'])
 def get_public_key(user_id):
-    
     # Retrieve a user's public key
     cur = mysql.connection.cursor()
     cur.execute("SELECT public_key FROM users WHERE user_id=%s", [user_id])
@@ -333,6 +407,7 @@ def qr():
         return redirect(url_for('register'))
     username = session['username']
     cur = mysql.connection.cursor()
+    username = username[:MAX_USERNAME_LEN] if len(username) > MAX_USERNAME_LEN else username
     cur.execute("SELECT user_id FROM users WHERE username = %s", [username])
     account = cur.fetchone()
     cur.close()
@@ -346,17 +421,17 @@ def qr():
         abort(404)
 
 
-
-@app.route('/qr_code')
+@app.route('/qr_code', methods=['GET', 'POST'])
 def qr_code():
     if 'username' not in session:
         return redirect(url_for('register'))
     username = session['username']
+    username = username[:MAX_USERNAME_LEN] if len(username) > MAX_USERNAME_LEN else username
     # user = User.query.filter_by(username=username).first()
     # if user is None:
     #     abort(404)
 
-    #del session['username']
+    # del session['username']
 
     cur = mysql.connection.cursor()
     cur.execute("SELECT user_id, totp_secret FROM users WHERE username = %s", [username])
@@ -374,9 +449,91 @@ def qr_code():
     else:
         abort(404)
 
-@app.route('/forgot-password')
+
+@app.route('/reset_password', methods=["GET", "POST"])
+def reset_password():
+    if request.method == "POST":
+
+        new_password = request.form['password']
+
+        # password strengh check
+        error_message = check_password_strength(new_password)
+        if error_message is not None:
+            flash(error_message, "danger")
+            return redirect(url_for("reset_password"))
+
+        hashed_password = bcrypt.generate_password_hash(new_password).decode('utf-8')
+
+        try:
+            cur = mysql.connection.cursor()
+            user_id = session.get("user_id")
+            cur.execute("UPDATE users SET password=%s WHERE user_id=%s", (hashed_password, user_id))
+            mysql.connection.commit()
+            cur.close()
+
+        except Exception:
+            flash("Unexpected Error", "danger")
+            return redirect(url_for("login"))
+
+        flash("You need to do the authentication again.", "success")
+        return redirect(url_for('qr'))
+
+    return render_template('reset_password.html')
+
+
+@app.route('/forgot-password', methods=["GET", "POST"])
 def forgot_password():
+    ## implement here
+    if request.method == "POST":
+        # get the input message.
+        username = request.form['username']
+        username = username[:MAX_USERNAME_LEN] if len(username) > MAX_USERNAME_LEN else username
+        security_question = request.form['securityQuestion']
+        security_answer = request.form['securityAnswer']
+        memorized_secret = request.form['memorizedSecret']
+
+        recaptcha_response = request.form['g-recaptcha-response']
+        # 向 reCAPTCHA 服务器发送验证请求
+        data = {
+            'secret': '6LeMXbQpAAAAAOXcpk6Fk_J3RqaSW6MAOJxWY6AL',
+            'response': recaptcha_response
+        }
+        response = requests.post('https://www.google.com/recaptcha/api/siteverify', data=data)
+        result = response.json()
+        if not result['success']:
+            error = 'Do the human machine authentication again.'
+            flash(error, 'danger')
+            return redirect(url_for('reset_password'))
+
+        # retrieve the stored message:
+        cur = mysql.connection.cursor()
+        cur.execute("SELECT security_question,security_answer,iv,memorized_secret,user_id  FROM users WHERE username = %s", [username])
+        account = cur.fetchone()
+        cur.close()
+
+
+        if account is None:
+            flash("Can not find your information.", "danger")
+            return redirect(url_for('forgot_password'))
+
+        user_id = account[4]
+        session['user_id'] = user_id
+
+        iv = account[2]  # bytes iv -> %s
+        encrypted_question = AESencrypt(app.config['SECRET_KEY'], iv, security_question.encode())
+        encrypted_answer = AESencrypt(app.config['SECRET_KEY'], iv, security_answer.encode())
+        encrypted_secret = AESencrypt(app.config['SECRET_KEY'], iv, memorized_secret.encode())
+
+        ### optimization: answer allow some format errors
+        valid = account[0] == encrypted_question and account[1] == encrypted_answer and account[2] == encrypted_secret
+        if valid:
+            return redirect(url_for('reset_password'))
+        else:
+            flash("Invalid. Try Again! ", 'danger')
+            pass
+
     return render_template('forgot-password.html')
+
 
 @app.route('/verify_totp', methods=['GET', 'POST'])
 def verify_totp():
@@ -398,21 +555,12 @@ def verify_totp():
             del session['username_password_verified']
             return redirect(url_for('index'))  # or wherever you want to redirect after login
         else:
-            
+
             pass
     # Show TOTP verification form
     return render_template('verify_totp.html')
 
 
-#about forgot password
-@app.route('/validate-security-info', methods=['POST'])
-def validate_security_info():
-    ## implement here 
-
-    return redirect(url_for('forgot_password'))
-
-
 bcrypt = Bcrypt(app)
 if __name__ == '__main__':
     app.run(debug=True)
-

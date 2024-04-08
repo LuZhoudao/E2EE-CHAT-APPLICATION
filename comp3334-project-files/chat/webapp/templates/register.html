@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" integrity="sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N" crossorigin="anonymous">
     <!-- External CSS -->
     <link href="{{ url_for('static', filename='styles.css') }}" rel="stylesheet">
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 </head>
 <body>
     <div class="login-container">
@@ -32,6 +33,11 @@
                 <input type="password" class="form-control" id="password" name="password" required>
             </div>
 
+            <div class="form-group">
+                <label for="password">Retype the Password</label>
+                <input type="password" class="form-control" id="retyped_password" name="retyped_password" required>
+            </div>
+
             <!-- Security Questions -->
             <div class="form-group">
                 <label for="securityQuestion">Security Question</label>
@@ -51,9 +57,21 @@
             <div class="form-group">
                 <label for="memorizedSecret">Memorized Secret (Additional Password)</label>
                 <input type="password" class="form-control" id="memorizedSecret" name="memorizedSecret">
-                <small class="form-text text-muted">Enter an additional password or phrase you can remember.</small>
+                <small class="form-text text-muted">Enter an additional phrase you can remember.</small>
             </div>
+
             <input type="hidden" name="public_key" id="publicKey">
+
+            <div class="g-recaptcha"
+                 data-sitekey="6LeMXbQpAAAAAOXcpk6Fk_J3RqaSW6MAOJxWY6AL"
+                 data-theme="light"
+                 data-size="normal"
+                 data-callback="verify"
+                 data-expired-callback="expired"
+                 data-error-callback="error"
+                 data-badge="inline"
+                 data-tabindex="0">
+            </div>
 
             <div class="text-center">
                 <button type="submit" class="btn btn-primary">Register</button>

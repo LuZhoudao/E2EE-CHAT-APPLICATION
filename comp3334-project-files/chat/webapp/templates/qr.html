@@ -10,16 +10,35 @@
     <link href="{{ url_for('static', filename='styles.css') }}" rel="stylesheet">
 </head>
 <body>
-    <div class="row">
+    <div class="form">
+        <!-- alert and header  -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+        <h2 class="text-center">Scan the QR Code Below</h2>
+        {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+
+
         <div class="col-md-4">
-            <h1>Scan the QR Code Below</h1>
             <p>
                 <img id="qr-code" src="{{ url_for('qr_code') }}" alt="QR Code" />
             </p>
-            <p>
-                Once scanned, you can <a class="btn" href="{{ url_for('login') }}">Login</a>
-            </p>
+        </div>
+
+        <div class="text-center mt-3">
+            <a href="/verify_totp" class="btn btn-secondary">Log in</a>
+        </div>
+
+        <div class="text-center mt-3">
+            <a href="/login" class="btn btn-secondary">Back</a>
         </div>
     </div>
+
 </body>
 </html>
