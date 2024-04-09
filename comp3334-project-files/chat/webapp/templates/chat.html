@@ -420,14 +420,14 @@ async function fetchAlarm() {
         if (data.new_alarms && data.new_alarms.length > 0) {
             data.new_alarms.forEach(alarm => {
                 if (alarm.message.type === "key-refresh") {
-                    console.log('key refresh alarm, keynum=', alarm.message.keynum);
+                    //console.log('key refresh alarm, keynum=', alarm.message.keynum);
                     const receivedKeyNum = alarm.message.keynum;
                     lastFetchedAlarmId = Math.max(lastFetchedAlarmId, alarm.id);
                     if (receivedKeyNum !== keynum) {
                         if((receivedKeyNum-keynum) <0){
                             sendAlarm();
                         }else{
-                            console.log('Key mismatch, please refresh keynum by press',(alarm.message.keynum-keynum),'times!');
+                            console.error('Key mismatch, please refresh keynum by press',(alarm.message.keynum-keynum),'times!');
                         }
                         
                     }
