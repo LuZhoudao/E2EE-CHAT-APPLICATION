@@ -88,7 +88,7 @@ async function GenerateKeypair() {
         );
         const privateKeyBase64 = window.btoa(String.fromCharCode(...new Uint8Array(exportedPrivateKey)));
         localStorage.setItem('privateKey', privateKeyBase64);
-        console.log('Generated and stored private key:', privateKeyBase64); 
+        console.log('Generated private key:', privateKeyBase64); 
 
         // Export the public key, convert it to Base64, and prepare to send it to the server
         const exportedPublicKey = await window.crypto.subtle.exportKey(
@@ -96,7 +96,7 @@ async function GenerateKeypair() {
             keyPair.publicKey
         );
         const publicKeyBase64 = window.btoa(String.fromCharCode(...new Uint8Array(exportedPublicKey)));
-        console.log('Generated public key (Base64):', publicKeyBase64);//test
+        console.log('Generated public key:', publicKeyBase64);//test
         // Send the public key to the server
         
         const response = await fetch('/update_public_key', {
