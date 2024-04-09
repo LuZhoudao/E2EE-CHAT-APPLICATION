@@ -191,12 +191,18 @@ function incrementUint8Array(value) {
 }
 
 let salt =new Uint8Array(16);
+
 let keynum = 0; //store key start from index 0
     
 async function startKeyDerivation() {
     const sharedSecret = await deriveSharedSecret(); 
     //const salt =new Uint8Array(16); // Generate a unique salt 
-    localStorage.setItem("salt",salt)   
+    if(!localStorage.getItem(salt)){
+        //console.log("no salt found in localstorage.")
+        localStorage.setItem("salt",salt)   
+    }else{
+        salt = localStorage.getItem(salt);
+    }
     console.log("salt generated:",arrayBufferToHex(salt))
     const { aesKey, macKey } = await deriveKeys(sharedSecret, salt, peer_id);
     storeKeys(aesKey,macKey,peer_id);
@@ -403,13 +409,6 @@ async function sendAlarm() {
             message: alarmMessage
         }),
     });
-
-    if (response.ok) {
-        console.log('Key refresh alarm sent successfully');
-    } else {
-        console.error('Failed to send key refresh alarm');
-    }
-
 }
 
 let lastFetchedAlarmId = 0;  // Keep track of the last fetched alarm ID
@@ -420,23 +419,26 @@ async function fetchAlarm() {
         if (data.new_alarms && data.new_alarms.length > 0) {
             data.new_alarms.forEach(alarm => {
                 if (alarm.message.type === "key-refresh") {
-                    //console.log('key refresh alarm, keynum=', alarm.message.keynum);
                     const receivedKeyNum = alarm.message.keynum;
                     lastFetchedAlarmId = Math.max(lastFetchedAlarmId, alarm.id);
-                    if (receivedKeyNum !== keynum) {
-                        if((receivedKeyNum-keynum) <0){
-                            sendAlarm();
-                        }else{
-                            console.error('Key mismatch, please refresh keynum by press',(alarm.message.keynum-keynum),'times!');
+                    if ((receivedKeyNum !== keynum) && peer_id != -1) {
+                        for(i=keynum;i<receivedKeyNum;i++){ //keep the key the same with other user
+                            console.log('refreshKeys called');
+                            incrementUint8Array(salt);  //salt ++
+                            const aesKey=localStorage.getItem(`${info}`);
+                            const macKey=localStorage.getItem(`${macinfo}`);
+                            localStorage.setItem(`${info}_${keynum}`,aesKey);
+                            localStorage.setItem(`${macinfo}_${keynum}`,macKey);
+                            keynum++; //keynum ++
+                            startKeyDerivation();
                         }
-                        
+                    }else{
+                        return;
                     }
                 }
             });
         }
-    } else {
-        console.error('Failed to fetch key refresh alarms');
-    }
+    } 
 }
 
 
@@ -480,7 +482,7 @@ document.getElementById('userList').addEventListener('change', async(event) => {
         // Store the fetched public key in localStorage
         localStorage.setItem(`publicKey_${peer_id}`, data.public_key);
         if(!localStorage.getItem(`${info}`) || !localStorage.getItem(`${macinfo}`)) {
-            console.log("no aeskey/mackey found in localstorage, regenerate.")
+            console.log("No aeskey/mackey found in localstorage, regenerate.")
             startKeyDerivation();
         }
         // Proceed to setup encryption or any other necessary steps
@@ -608,7 +610,6 @@ async function decryptMessage(encryptedMessage, aesKey, macKey) {
     );
     
     if (!isHmacValid) {
-        console.error("HMAC verification failed: data integrity compromised.");
         throw new Error("HMAC verification failed");
     }
 
@@ -626,36 +627,57 @@ async function decryptMessage(encryptedMessage, aesKey, macKey) {
     return plaintext;
 }
 
-// Main function to display the message
-async function displayMessage(message) {
-    let plaintext;
-    let isEncrypted = message.iv && message.hmac && message.ciphertext;
+async function tryDecryptWithHistoricalKeys(encryptedMessage) {  //use history key to decrypt
+    for (let i = keynum; i >= 0; i--) {
+        const aesKeyName = i === keynum ? `${info}` : `${info}_${i}`;
+        const macKeyName = i === keynum ? `${macinfo}` : `${macinfo}_${i}`;
+        
+        const aesKeyJwk = JSON.parse(localStorage.getItem(aesKeyName));
+        const macKeyJwk = JSON.parse(localStorage.getItem(macKeyName));
+        if (!aesKeyJwk || !macKeyJwk) continue;
 
-    // Determine sender and receiver strings
-    const sender = message.sender_id == myID ? "me" : (userInfo[message.sender_id] || `User ${message.sender_id}`);
-    const receiver = message.receiver_id == myID ? "me" : (userInfo[message.receiver_id] || `User ${message.receiver_id}`);
-
-    if (isEncrypted) {
-        // Retrieve AES and MAC keys from localStorage and import them
-        const aesKeyJwk = JSON.parse(localStorage.getItem(`${info}`));
-        const macKeyJwk = JSON.parse(localStorage.getItem(`${macinfo}`));
         const aesKey = await window.crypto.subtle.importKey("jwk", aesKeyJwk, { name: "AES-GCM" }, true, ["decrypt"]);
         const macKey = await window.crypto.subtle.importKey("jwk", macKeyJwk, { name: "HMAC", hash: { name: "SHA-256" } }, true, ["verify"]);
 
         try {
-            plaintext = await decryptMessage(message, aesKey, macKey);
+            return await decryptMessage(encryptedMessage, aesKey, macKey);
+        } catch (error) {
+            // If decryption with this key pair fails, continue to try with the next pair
+            console.error(`Decryption attempt with key version ${i} failed: ${error}`);
+        }
+    }
+    throw new Error("Decryption failed with all available keys.");
+}
+
+
+
+// Main function to display the message
+async function displayMessage(message) {
+    let plaintext;
+    const sender = message.sender_id == myID ? "me" : (userInfo[message.sender_id] || `User ${message.sender_id}`);
+    const receiver = message.receiver_id == myID ? "me" : (userInfo[message.receiver_id] || `User ${message.receiver_id}`);
+
+    if (message.iv && message.hmac && message.ciphertext) {
+        try {
+            plaintext = await tryDecryptWithHistoricalKeys(message);
         } catch (error) {
             console.error("Decryption error:", error);
-            return;
+            // Specific warning message for decryption failure
+            plaintext = "⚠️ This message could not be decrypted. It may have been encrypted with a key that is no longer available.";
         }
     } else {
-        // If the message is not encrypted, assume plaintext is directly available
-        plaintext = message.text; // Assuming plaintext messages have a 'text' property
+        plaintext = message.text; // Non-encrypted message case
     }
 
-    // Append message to chat
+    appendMessageToChat(sender, receiver, plaintext, !message.iv);
+}
+
+function appendMessageToChat(sender, receiver, plaintext, isWarning = false) {
     const messagesContainer = document.getElementById('messages');
     const messageElement = document.createElement('div');
+    if (isWarning) {
+        messageElement.style.color = 'red'; // Style warning messages differently, if desired
+    }
     messageElement.textContent = `From ${sender} to ${receiver}: ${plaintext}`;
     messagesContainer.appendChild(messageElement);
 }
@@ -663,9 +685,11 @@ async function displayMessage(message) {
 
 
 
+
 // Periodically fetch new messages every second
 setInterval(fetchMessages, 1000);
 setInterval(fetchAlarm, 1000);
+
 // Erase Chat function using fetch API
 function eraseChat() {
     if (peer_id === -1) return; // Exit if no peer selected
