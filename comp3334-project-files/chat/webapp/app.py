@@ -279,7 +279,7 @@ def register():
         username = request.form['username']
         username = username[:MAX_USERNAME_LEN] if len(username) > MAX_USERNAME_LEN else username
         password = request.form['password']
-        public_key = request.form['public_key']  # Make sure you have an input for this in your form
+        public_key = request.form['public_key']  
         security_question = request.form['securityQuestion']
         retyped_password = request.form["retyped_password"]
         security_answer = request.form['securityAnswer']
@@ -291,9 +291,8 @@ def register():
             flash("Different passwords, please input again", 'danger')
             return render_template('register.html')
 
-
+        '''
         recaptcha_response = request.form['g-recaptcha-response']
-
         # 向 reCAPTCHA 服务器发送验证请求
         data = {
             'secret': '6LeMXbQpAAAAAP0CTcYJcAk16IhutPwNVF5dnOs-',
@@ -301,10 +300,12 @@ def register():
         }
         response = requests.post('https://www.google.com/recaptcha/api/siteverify', data=data)
         result = response.json()
+        print("received post from google api")
         if not result['success']:
             error = 'Do the human machine authentication again.'
             flash(error, 'danger')
             return redirect(url_for('register'))
+        '''
 
         # password strengh check
         error_message = check_password_strength(password)
@@ -491,8 +492,7 @@ def forgot_password():
         security_question = request.form['securityQuestion']
         security_answer = request.form['securityAnswer']
         memorized_secret = request.form['memorizedSecret']
-
-        recaptcha_response = request.form['g-recaptcha-response']
+        '''recaptcha_response = request.form['g-recaptcha-response']
         # 向 reCAPTCHA 服务器发送验证请求
         data = {
             'secret': '6LeMXbQpAAAAAP0CTcYJcAk16IhutPwNVF5dnOs-',
@@ -503,7 +503,9 @@ def forgot_password():
         if not result['success']:
             error = 'Do the human machine authentication again.'
             flash(error, 'danger')
-            return redirect(url_for('reset_password'))
+            return redirect(url_for('forgot_password'))
+        '''
+        
 
         # retrieve the stored message:
         cur = mysql.connection.cursor()
