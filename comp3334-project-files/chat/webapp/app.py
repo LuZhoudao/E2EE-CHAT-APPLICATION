@@ -279,11 +279,11 @@ def register():
             flash("Different passwords, please input again", 'danger')
             return render_template('register.html')
 
-        '''
+
         recaptcha_response = request.form['g-recaptcha-response']
         # 向 reCAPTCHA 服务器发送验证请求
         data = {
-            'secret': '6LeMXbQpAAAAAOXcpk6Fk_J3RqaSW6MAOJxWY6AL',
+            'secret': '6LeMXbQpAAAAAP0CTcYJcAk16IhutPwNVF5dnOs-',
             'response': recaptcha_response
         }
         response = requests.post('https://www.google.com/recaptcha/api/siteverify', data=data)
@@ -293,7 +293,7 @@ def register():
             error = 'Do the human machine authentication again.'
             flash(error, 'danger')
             return redirect(url_for('register'))
-        '''
+
 
         # password strengh check
         error_message = check_password_strength(password)
@@ -480,10 +480,10 @@ def forgot_password():
         security_question = request.form['securityQuestion']
         security_answer = request.form['securityAnswer']
         memorized_secret = request.form['memorizedSecret']
-        '''recaptcha_response = request.form['g-recaptcha-response']
+        recaptcha_response = request.form['g-recaptcha-response']
         # 向 reCAPTCHA 服务器发送验证请求
         data = {
-            'secret': '6LeMXbQpAAAAAOXcpk6Fk_J3RqaSW6MAOJxWY6AL',
+            'secret': '6LeMXbQpAAAAAP0CTcYJcAk16IhutPwNVF5dnOs-',
             'response': recaptcha_response
         }
         response = requests.post('https://www.google.com/recaptcha/api/siteverify', data=data)
@@ -492,7 +492,7 @@ def forgot_password():
             error = 'Do the human machine authentication again.'
             flash(error, 'danger')
             return redirect(url_for('forgot_password'))
-        '''
+
         
 
         # retrieve the stored message:
@@ -515,7 +515,7 @@ def forgot_password():
         encrypted_secret = AESencrypt(app.config['SECRET_KEY'], iv, memorized_secret.encode())
 
         ### optimization: answer allow some format errors
-        valid = account[0] == encrypted_question and account[1] == encrypted_answer and account[2] == encrypted_secret
+        valid = account[0] == encrypted_question and account[1] == encrypted_answer and account[3] == encrypted_secret
         if valid:
             return redirect(url_for('reset_password'))
         else:
