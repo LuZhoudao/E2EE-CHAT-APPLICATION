@@ -96,7 +96,7 @@ async function GenerateKeypair() {
             keyPair.publicKey
         );
         const publicKeyBase64 = window.btoa(String.fromCharCode(...new Uint8Array(exportedPublicKey)));
-        console.log('Generated public key:', publicKeyBase64);//test
+        console.log('Generated public key :', publicKeyBase64);//test
         // Send the public key to the server
         
         const response = await fetch('/update_public_key', {
@@ -311,7 +311,7 @@ async function sendMessage() {
     iv_hex = arrayBufferToHex(iv)
     hmac_hex = arrayBufferToHex(hmacSignature)
 
-    console.log("Encryption: iv=",iv_hex,",hmac=",hmac_hex,",ciphertext=",encryptedDataB64,",associatedData=",associatedData);
+    console.log("Message:",message,",iv=",iv_hex,",hmac=",hmac_hex,",ciphertext=",encryptedDataB64,",associatedData=",associatedData);
 
     // Send the iv,encrypted message and HMAC signature to the server
     const response = await fetch('/api/send_message', {
@@ -324,13 +324,21 @@ async function sendMessage() {
             hmac: hmacSignatureB64,
             
         }),
+    })
+    .then(response => {
+        if (!response.ok) {
+            // If the server response is not OK, throw an error
+            throw new Error('Network response was not ok');
+        }
+        return response.json(); // Parse JSON response from the server
+    })
+    .then(data => {
+        console.log('Message sent:', data); // Log success message
+        document.getElementById('messageInput').value = ''; // Clear the input after sending
+    })
+    .catch(error => {
+        console.error('Error sending message:', error); // Log any errors
     });
-
-    if (!response.ok) {
-        throw new Error('Failed to send encrypted message to the server');
-    }
-    console.log("Encrypted message and HMAC signature sent to server");
-    document.getElementById('messageInput').value = ''; // Clear the input field after sending
 }
 // Helper function to convert Base64 to ArrayBuffer
 function base64ToArrayBuffer(base64) {
@@ -555,7 +563,6 @@ async function displayMessage(encryptedMessage) {
     // Decrypt the message
     let plaintext;
     const associatedData = `CHAT_MSG_FROM_${peer_id}_TO_${myID}`;
-    console.log("Decryption:","Hmac_Valid=",isHmacValid,",iv=",iv_hex,",hmac=",hmac_hex,",ciphertext=",encryptedMessage.ciphertext,",associatedData=",associatedData);
     try {
         const decryptedData = await window.crypto.subtle.decrypt(
             { name: "AES-GCM", iv: ivArrayBuffer },
@@ -564,6 +571,7 @@ async function displayMessage(encryptedMessage) {
             associatedData
         );
         plaintext = new TextDecoder().decode(decryptedData);
+        console.log("plaintext:",plaintext,",Hmac_Valid=",isHmacValid,",iv=",iv_hex,",hmac=",hmac_hex,",ciphertext=",encryptedMessage.ciphertext,",associatedData=",associatedData);
     } catch (error) {
         console.error("Decryption failed", error);
         return;
