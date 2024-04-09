@@ -27,6 +27,7 @@ CREATE TABLE messages (
     ciphertext TEXT NOT NULL, -- Storing encrypted message content
     iv TEXT NOT NULL, -- Initialization Vector for AES GCM mode encryption
     hmac TEXT NOT NULL, -- HMAC signature to ensure message integrity
+    aad TEXT NOT NULL, -- Additional Authenticated Data
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (sender_id) REFERENCES users(user_id),
     FOREIGN KEY (receiver_id) REFERENCES users(user_id)

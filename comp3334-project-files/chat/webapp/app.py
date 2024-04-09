@@ -116,8 +116,11 @@ def fetch_messages():
         peer_id = request.args.get('peer_id')
         last_message_id = request.args.get('last_message_id', 0)
 
-        # Fetch messages from the database
+        # Ensure the user is authenticated
+        if 'user_id' not in session:
+            return jsonify({'error': 'Unauthorized'}), 401
 
+        # Fetch messages from the database
         messages = fetch_messages_from_db(peer_id, last_message_id)
 
         # Return the messages as JSON
@@ -131,13 +134,14 @@ def fetch_messages():
 
 def fetch_messages_from_db(peer_id, last_message_id):
     query = """
-    SELECT message_id, sender_id, receiver_id, ciphertext, iv, hmac, created_at 
+    SELECT message_id, sender_id, receiver_id, ciphertext, iv, hmac, aad, created_at 
     FROM messages 
     WHERE 
         (sender_id = %s AND receiver_id = %s OR sender_id = %s AND receiver_id = %s) 
         AND message_id > %s
     ORDER BY message_id ASC
     """
+    # It's assumed that session['user_id'] is securely set and valid
     values = (session['user_id'], peer_id, peer_id, session['user_id'], last_message_id)
 
     cur = mysql.connection.cursor()
@@ -145,50 +149,55 @@ def fetch_messages_from_db(peer_id, last_message_id):
     messages = cur.fetchall()
     cur.close()
 
+    # Formatting the messages for JSON response
     return [{
         'message_id': msg[0],
         'sender_id': msg[1],
         'receiver_id': msg[2],
         'ciphertext': msg[3],
-        'iv': msg[4],  # Assuming binary data
-        'hmac': msg[5],  # Assuming binary data
-        'created_at': msg[6].strftime("%Y-%m-%d %H:%M:%S"),
+        'iv': msg[4],  # Assuming the IV is stored in Base64
+        'hmac': msg[5],  # Assuming the HMAC is stored in Base64
+        'aad': msg[6],   # AAD added to the output
+        'created_at': msg[7].strftime("%Y-%m-%d %H:%M:%S"),
     } for msg in messages]
+
+
 
 @app.route('/api/send_message', methods=['POST'])
 def send_message():
-    # Ensure the request has the necessary encrypted components
-    if not request.json or 'ciphertext' not in request.json or 'iv' not in request.json or 'hmac' not in request.json:
-        abort(400)  # Bad request if missing any encryption components
+    # Ensure the request has the necessary encrypted components and AAD
+    required_fields = ['ciphertext', 'iv', 'hmac', 'aad']
+    if not request.json or not all(field in request.json for field in required_fields):
+        abort(400)  # Bad request if missing any required fields
 
     if 'user_id' not in session:
         abort(403)  # Forbidden if the user isn't logged in
 
-    # Extract encrypted data from the request
+    # Extract encrypted data and AAD from the request
     sender_id = session['user_id']
     receiver_id = request.json['peer_id']
     ciphertext = request.json['ciphertext']
     iv_base64 = request.json['iv']
     hmac_base64 = request.json['hmac']
+    aad = request.json['aad']  # Extracting AAD sent from the client
 
-    # simply prints the received data
     print(f"Received encrypted message from {sender_id} to {receiver_id}")
     print(f"Ciphertext: {ciphertext}")
     print(f"IV: {iv_base64}")
     print(f"HMAC: {hmac_base64}")
-    
-    save_encrypted_message(sender_id, receiver_id, ciphertext, iv_base64, hmac_base64)
+    print(f"AAD: {aad}")  # Logging the AAD for verification
 
+    save_encrypted_message(sender_id, receiver_id, ciphertext, iv_base64, hmac_base64, aad)
 
     return jsonify({'status': 'success', 'message': 'Encrypted message sent'}), 200
 
 
-def save_encrypted_message(sender_id, receiver_id, ciphertext, iv, hmac):
+def save_encrypted_message(sender_id, receiver_id, ciphertext, iv, hmac, aad):
     try:
         query = '''INSERT INTO messages 
-                   (sender_id, receiver_id, ciphertext, iv, hmac) 
-                   VALUES (%s, %s, %s, %s, %s)'''
-        values = (sender_id, receiver_id, ciphertext, iv, hmac)
+                   (sender_id, receiver_id, ciphertext, iv, hmac, aad) 
+                   VALUES (%s, %s, %s, %s, %s, %s)'''
+        values = (sender_id, receiver_id, ciphertext, iv, hmac, aad)
 
         cur = mysql.connection.cursor()
         cur.execute(query, values)
@@ -198,6 +207,7 @@ def save_encrypted_message(sender_id, receiver_id, ciphertext, iv, hmac):
     except Exception as e:
         print(f"Failed to save message: {e}")
         return False
+
 
 
 @app.route('/api/latest_iv/<int:peer_id>')

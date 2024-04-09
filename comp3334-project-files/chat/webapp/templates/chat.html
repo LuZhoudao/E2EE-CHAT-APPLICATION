@@ -49,6 +49,7 @@ let userPrivateKey;
 let sharedSecrets = {}; // Object to store shared secrets with each peer
 let ivCounters = {};
 
+
 async function fetchAndSetupEncryptionWithPeer(peerId) {
     const peerPublicKey = await fetchPeerPublicKey(peerId);
     // Convert peerPublicKey from fetched format to ArrayBuffer if necessary
@@ -136,17 +137,17 @@ async function deriveKeys(sharedSecretBits, salt, peer_id) {
     );
 
 
-if (myID < peer_id) {
-  info = `CHAT_KEY_USER${myID}to${peer_id}`;
-  macinfo = `CHAT_MAC_USER${myID}to${peer_id}`;
-  console.log("key info generated:",info,",mac info generated:",macinfo);
-} else if (myID > peer_id) {
-    info = `CHAT_KEY_USER${peer_id}to${myID}`;
-    macinfo = `CHAT_MAC_USER${peer_id}to${myID}`;
+    if (myID < peer_id) {
+    info = `CHAT_KEY_USER${myID}to${peer_id}`;
+    macinfo = `CHAT_MAC_USER${myID}to${peer_id}`;
     console.log("key info generated:",info,",mac info generated:",macinfo);
-} else {
-  console.error("error when comparing peer_id and myID")
-}
+    } else if (myID > peer_id) {
+        info = `CHAT_KEY_USER${peer_id}to${myID}`;
+        macinfo = `CHAT_MAC_USER${peer_id}to${myID}`;
+        console.log("key info generated:",info,",mac info generated:",macinfo);
+    } else {
+    console.error("error when comparing peer_id and myID")
+    }
 
 
     // Derive the AES-GCM encryption key
@@ -268,6 +269,7 @@ async function sendMessage() {
         console.error("No receiver selected or peer_id missing in Local Storage.");
         return;
     }
+    const associatedData = `CHAT_MSG_FROM_${myID}_TO_${peer_id}`
 
     const aesKeyJwk = JSON.parse(localStorage.getItem(`${info}`));
     const macKeyJwk = JSON.parse(localStorage.getItem(`${macinfo}`));
@@ -290,16 +292,13 @@ async function sendMessage() {
     const ivb64 = await generateIV();
     const iv = base64ToArrayBuffer(ivb64);
     const encoder = new TextEncoder();
-
-    const associatedData = `CHAT_MSG_FROM_${myID}_TO_${peer_id}`; //should test it further
-
     // Encrypt the message
     const encryptedData = await window.crypto.subtle.encrypt(
         {
-             name: "AES-GCM", iv
-             , associatedData
-            },
-             aesKey, encoder.encode(message)
+            name: "AES-GCM",
+            iv: iv,
+        },
+            aesKey, encoder.encode(message)
     );
 
     // Sign the IV with HMAC to ensure its integrity
@@ -322,7 +321,7 @@ async function sendMessage() {
             ciphertext: encryptedDataB64,
             iv: arrayBufferToBase64(iv),
             hmac: hmacSignatureB64,
-            
+            aad: associatedData,
         }),
     })
     .then(response => {
@@ -593,6 +592,7 @@ function fetchMessages() {
 
 async function decryptMessage(encryptedMessage, aesKey, macKey) {
     // Convert IV, HMAC, and ciphertext from Base64 to ArrayBuffer
+    
     const ivArrayBuffer = base64ToArrayBuffer(encryptedMessage.iv);
     const hmacArrayBuffer = base64ToArrayBuffer(encryptedMessage.hmac);
     const ciphertextArrayBuffer = base64ToArrayBuffer(encryptedMessage.ciphertext);
@@ -606,7 +606,7 @@ async function decryptMessage(encryptedMessage, aesKey, macKey) {
         hmacArrayBuffer, // The HMAC signature from the message
         ivArrayBuffer // The IV used for encryption
     );
-
+    
     if (!isHmacValid) {
         console.error("HMAC verification failed: data integrity compromised.");
         throw new Error("HMAC verification failed");
@@ -621,7 +621,7 @@ async function decryptMessage(encryptedMessage, aesKey, macKey) {
     const plaintext = new TextDecoder().decode(decryptedData);
 
     // Here is your original log statement included with the corrected function context
-    console.log("Plaintext:", plaintext, ",Hmac_Valid=", isHmacValid, ",iv=", iv_hex, ",hmac=", hmac_hex, ",ciphertext=", encryptedMessage.ciphertext, ",associatedData=", `CHAT_MSG_FROM_${encryptedMessage.sender_id}_TO_${encryptedMessage.receiver_id}`);
+    console.log("Plaintext:", plaintext, ",Hmac_Valid=", isHmacValid, ",iv=", iv_hex, ",hmac=", hmac_hex, ",ciphertext=", encryptedMessage.ciphertext, ",associatedData=", encryptedMessage.aad);
 
     return plaintext;
 }
