@@ -296,7 +296,7 @@ def register():
 
         # 向 reCAPTCHA 服务器发送验证请求
         data = {
-            'secret': '6LeMXbQpAAAAAOXcpk6Fk_J3RqaSW6MAOJxWY6AL',
+            'secret': '6LeMXbQpAAAAAP0CTcYJcAk16IhutPwNVF5dnOs-',
             'response': recaptcha_response
         }
         response = requests.post('https://www.google.com/recaptcha/api/siteverify', data=data)
@@ -495,7 +495,7 @@ def forgot_password():
         recaptcha_response = request.form['g-recaptcha-response']
         # 向 reCAPTCHA 服务器发送验证请求
         data = {
-            'secret': '6LeMXbQpAAAAAOXcpk6Fk_J3RqaSW6MAOJxWY6AL',
+            'secret': '6LeMXbQpAAAAAP0CTcYJcAk16IhutPwNVF5dnOs-',
             'response': recaptcha_response
         }
         response = requests.post('https://www.google.com/recaptcha/api/siteverify', data=data)
@@ -523,9 +523,13 @@ def forgot_password():
         encrypted_question = AESencrypt(app.config['SECRET_KEY'], iv, security_question.encode())
         encrypted_answer = AESencrypt(app.config['SECRET_KEY'], iv, security_answer.encode())
         encrypted_secret = AESencrypt(app.config['SECRET_KEY'], iv, memorized_secret.encode())
+        # print("account: ",account)
+        # print("encrypted_secret:", encrypted_secret)
+        # print(encrypted_question, encrypted_answer)
 
         ### optimization: answer allow some format errors
-        valid = account[0] == encrypted_question and account[1] == encrypted_answer and account[2] == encrypted_secret
+        valid = account[0] == encrypted_question and account[1] == encrypted_answer and account[3] == encrypted_secret  ##！！
+        # print(valid)
         if valid:
             return redirect(url_for('reset_password'))
         else:
