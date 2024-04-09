@@ -122,6 +122,8 @@ if (!localStorage.getItem('privateKey')){
     console.log("no privateKey found in localstorage, regenerate new keykepar!");
 }
 
+let info = 'none';
+let macinfo = 'none';
 
 async function deriveKeys(sharedSecretBits, salt, peer_id) {
     // Import the raw shared secret bits as a CryptoKey for use with HKDF
@@ -133,18 +135,15 @@ async function deriveKeys(sharedSecretBits, salt, peer_id) {
         ["deriveKey"]
     );
 
-let info = 'none';
-let macinfo = 'none';
+
 if (myID < peer_id) {
   info = `CHAT_KEY_USER${myID}to${peer_id}`;
   macinfo = `CHAT_MAC_USER${myID}to${peer_id}`;
-  console.log("key info generated:",info);
-  console.log("mac info generated:",macinfo);
+  console.log("key info generated:",info,",mac info generated:",macinfo);
 } else if (myID > peer_id) {
     info = `CHAT_KEY_USER${peer_id}to${myID}`;
     macinfo = `CHAT_MAC_USER${peer_id}to${myID}`;
-    console.log("key info generated:",info)
-    console.log("mac info generated:",macinfo);
+    console.log("key info generated:",info,",mac info generated:",macinfo);
 } else {
   console.error("error when comparing peer_id and myID")
 }
@@ -197,7 +196,7 @@ async function startKeyDerivation() {
     const sharedSecret = await deriveSharedSecret(); 
     //const salt =new Uint8Array(16); // Generate a unique salt 
     localStorage.setItem("salt",salt)   
-    console.log(arrayBufferToBase64(salt))
+    console.log("salt generated:",arrayBufferToHex(salt))
     const { aesKey, macKey } = await deriveKeys(sharedSecret, salt, peer_id);
     storeKeys(aesKey,macKey,peer_id);
 }
@@ -217,8 +216,6 @@ async function generateIV() {
         console.error("Error decoding IV from Base64:", error);
         // If decoding fails, initialize a new IV of 12 zero bytes
         ivBytes = new Uint8Array(12);
-        
-        console.log("ivbytes regenerate: ",arrayBufferToBase64(ivBytes))
     }
     
     // Increment the IV
@@ -249,8 +246,8 @@ async function storeKeys(aesKey, macKey, peer_id) {
     const macKeyExported = await window.crypto.subtle.exportKey("jwk", macKey);
 
     // Serialize and store in Local Storage
-    localStorage.setItem('aesKey', JSON.stringify(aesKeyExported));
-    localStorage.setItem('macKey', JSON.stringify(macKeyExported));
+    localStorage.setItem(`${info}`, JSON.stringify(aesKeyExported));
+    localStorage.setItem(`${macinfo}`, JSON.stringify(macKeyExported));
 
     // Store peer_id
     localStorage.setItem('peer_id', peer_id);
@@ -272,8 +269,8 @@ async function sendMessage() {
         return;
     }
 
-    const aesKeyJwk = JSON.parse(localStorage.getItem('aesKey'));
-    const macKeyJwk = JSON.parse(localStorage.getItem('macKey'));
+    const aesKeyJwk = JSON.parse(localStorage.getItem(`${info}`));
+    const macKeyJwk = JSON.parse(localStorage.getItem(`${macinfo}`));
     if (!aesKeyJwk || !macKeyJwk) {
         console.error("Encryption or MAC key missing in Local Storage.");
         return;
@@ -311,9 +308,10 @@ async function sendMessage() {
     // Convert encrypted data and HMAC signature to Base64 for sending
     const encryptedDataB64 = arrayBufferToBase64(encryptedData);
     const hmacSignatureB64 = arrayBufferToBase64(hmacSignature);
+    iv_hex = arrayBufferToHex(iv)
     hmac_hex = arrayBufferToHex(hmacSignature)
 
-    console.log("Encryption: iv=",ivb64,",hmac=",hmac_hex,",ciphertext=",encryptedDataB64,",associatedData=",associatedData);
+    console.log("Encryption: iv=",iv_hex,",hmac=",hmac_hex,",ciphertext=",encryptedDataB64,",associatedData=",associatedData);
 
     // Send the iv,encrypted message and HMAC signature to the server
     const response = await fetch('/api/send_message', {
@@ -359,19 +357,16 @@ function arrayBufferToBase64(buffer) {
 
 // Refresh Keys function placeholder
 function refreshKeys() {
-    console.log('refreshKeys called!!');
+    console.log('refreshKeys called');
     incrementUint8Array(salt);  //salt ++
-    
-    console.log('salt:',salt);
     //store current pair of keys into the localstorage?
-    const aesKey=localStorage.getItem('aesKey');
-    const macKey=localStorage.getItem('macKey');
-    localStorage.setItem(`aesKey_${keynum}`,aesKey);
-    localStorage.setItem(`macKey_${keynum}`,macKey);
+    const aesKey=localStorage.getItem(`${info}`);
+    const macKey=localStorage.getItem(`${macinfo}`);
+    localStorage.setItem(`${info}_${keynum}`,aesKey);
+    localStorage.setItem(`${macinfo}_${keynum}`,macKey);
     keynum++; //keynum ++
 
     // #salt should up up 
-    console.log("AES and MAC key REderiviation!!");
     startKeyDerivation();
 
 }
@@ -413,7 +408,7 @@ document.getElementById('userList').addEventListener('change', async(event) => {
 
         // Store the fetched public key in localStorage
         localStorage.setItem(`publicKey_${peer_id}`, data.public_key);
-        if(!localStorage.getItem('aesKey') || !localStorage.getItem('macKey')) {
+        if(!localStorage.getItem(`${info}`) || !localStorage.getItem(`${macinfo}`)) {
             console.log("no aeskey/mackey found in localstorage, regenerate.")
             startKeyDerivation();
         }
@@ -488,11 +483,10 @@ async function deriveSharedSecret() {
     );
 
     // Convert the hash to a Base64 string to make it easier to compare or transmit
-    const hashBase64 = arrayBufferToBase64(hashBuffer);
+    const sharedsecret_hex = arrayBufferToHex(hashBuffer);
 
-    console.log("Shared secret: ", hashBase64);
-    //console.log("Derived shared secret:", sharedSecret);
-    //console.log("Derived bits: ", bits);
+    console.log("Shared secret: ", sharedsecret_hex);
+
     return bits;
     //return sharedSecret;
 }
@@ -525,7 +519,6 @@ function fetchMessages() {
         .catch(error => console.error('Error fetching messages:', error));
 }
 
-let hmacflag = false;
 // Display a single message
 async function displayMessage(encryptedMessage) {
     if (!encryptedMessage) {
@@ -533,8 +526,8 @@ async function displayMessage(encryptedMessage) {
     }
 
     // Retrieve AES and MAC keys from localStorage and import them
-    const aesKeyJwk = JSON.parse(localStorage.getItem('aesKey'));
-    const macKeyJwk = JSON.parse(localStorage.getItem('macKey'));
+    const aesKeyJwk = JSON.parse(localStorage.getItem(`${info}`));
+    const macKeyJwk = JSON.parse(localStorage.getItem(`${macinfo}`));
     const aesKey = await window.crypto.subtle.importKey("jwk", aesKeyJwk, { name: "AES-GCM" }, true, ["decrypt"]);
     const macKey = await window.crypto.subtle.importKey("jwk", macKeyJwk, { name: "HMAC", hash: { name: "SHA-256" } }, true, ["verify"]);
 
@@ -544,7 +537,7 @@ async function displayMessage(encryptedMessage) {
     const ciphertextArrayBuffer = base64ToArrayBuffer(encryptedMessage.ciphertext);
 
     hmac_hex = arrayBufferToHex(hmacArrayBuffer);
-    
+    iv_hex = arrayBufferToHex(ivArrayBuffer)
 
     // Verify IV HMAC to ensure it hasn't been tampered with
     const isHmacValid = await window.crypto.subtle.verify(
@@ -555,17 +548,14 @@ async function displayMessage(encryptedMessage) {
     );
     
     if (!isHmacValid) {
-        hmacflag = false;
         console.error("HMAC verification failed: data integrity compromised.");
         return;
-    }else{
-        hmacflag = true;
     }
 
     // Decrypt the message
     let plaintext;
     const associatedData = `CHAT_MSG_FROM_${peer_id}_TO_${myID}`;
-    console.log("Decryption:","Hmac_Valid=",hmacflag,",iv=",encryptedMessage.iv,",hmac=",hmac_hex,",ciphertext=",encryptedMessage.ciphertext,",associatedData=",associatedData);
+    console.log("Decryption:","Hmac_Valid=",isHmacValid,",iv=",iv_hex,",hmac=",hmac_hex,",ciphertext=",encryptedMessage.ciphertext,",associatedData=",associatedData);
     try {
         const decryptedData = await window.crypto.subtle.decrypt(
             { name: "AES-GCM", iv: ivArrayBuffer },
