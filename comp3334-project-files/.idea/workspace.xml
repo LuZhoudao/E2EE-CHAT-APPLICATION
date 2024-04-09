@@ -5,9 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="16dfb8d8-3689-4496-9271-943760b0a3ac" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/chat/webapp/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/chat/webapp/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chat/webapp/sessions/15c97d754dddc274e70ace511873ac1e" beforeDir="false" afterPath="$PROJECT_DIR$/chat/webapp/sessions/15c97d754dddc274e70ace511873ac1e" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chat/webapp/sessions/2029240f6d1128be89ddc32729463129" beforeDir="false" afterPath="$PROJECT_DIR$/chat/webapp/sessions/2029240f6d1128be89ddc32729463129" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
