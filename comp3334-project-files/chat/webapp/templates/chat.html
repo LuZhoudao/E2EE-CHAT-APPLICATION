@@ -373,11 +373,74 @@ function refreshKeys() {
     localStorage.setItem(`${info}_${keynum}`,aesKey);
     localStorage.setItem(`${macinfo}_${keynum}`,macKey);
     keynum++; //keynum ++
-
+    sendAlarm();
     // #salt should up up 
     startKeyDerivation();
+}
+
+
+async function sendAlarm() {
+    const peer_id = localStorage.getItem('peer_id');
+    if (!peer_id) {
+        console.error("No peer selected for key refresh alarm.");
+        return;
+    }
+    const currentKeyNum = keynum; // Assuming keynum is globally accessible or stored in localStorage
+
+    // Define the alarm message with keynum included
+    const alarmMessage = {
+        type: "key-refresh",
+        content: "Keys have been refreshed",
+        keynum: currentKeyNum
+    };
+
+    // Send the alarm to the server using the Flask endpoint
+    const response = await fetch('/api/sendAlarm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            peer_id: peer_id,
+            message: alarmMessage
+        }),
+    });
+
+    if (response.ok) {
+        console.log('Key refresh alarm sent successfully');
+    } else {
+        console.error('Failed to send key refresh alarm');
+    }
 
 }
+
+let lastFetchedAlarmId = 0;  // Keep track of the last fetched alarm ID
+async function fetchAlarm() {
+    const response = await fetch(`/api/fetchAlarm?last_id=${lastFetchedAlarmId}`);
+    if (response.ok) {
+        const data = await response.json();
+        if (data.new_alarms && data.new_alarms.length > 0) {
+            data.new_alarms.forEach(alarm => {
+                if (alarm.message.type === "key-refresh") {
+                    console.log('key refresh alarm, keynum=', alarm.message.keynum);
+                    const receivedKeyNum = alarm.message.keynum;
+                    lastFetchedAlarmId = Math.max(lastFetchedAlarmId, alarm.id);
+                    if (receivedKeyNum !== keynum) {
+                        if((receivedKeyNum-keynum) <0){
+                            sendAlarm();
+                        }else{
+                            console.log('Key mismatch, please refresh keynum by press',(alarm.message.keynum-keynum),'times!');
+                        }
+                        
+                    }
+                }
+            });
+        }
+    } else {
+        console.error('Failed to fetch key refresh alarms');
+    }
+}
+
+
+
 
 // Populate users function
 function populateUsers(users) {
@@ -593,7 +656,7 @@ async function displayMessage(encryptedMessage) {
 
 // Periodically fetch new messages every second
 setInterval(fetchMessages, 1000);
-
+setInterval(fetchAlarm, 1000);
 // Erase Chat function using fetch API
 function eraseChat() {
     if (peer_id === -1) return; // Exit if no peer selected

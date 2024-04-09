@@ -254,7 +254,6 @@ def logout():
 
 
 
-
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     print(request)
@@ -549,6 +548,32 @@ def verify_totp():
             pass
     # Show TOTP verification form
     return render_template('verify_totp.html')
+
+alarms = []
+last_alarm_id = 0 
+
+@app.route('/api/sendAlarm', methods=['POST'])
+def send_key_refresh_alarm():
+    global last_alarm_id  # This is necessary to modify the global variable
+    data = request.json
+    peer_id = data.get('peer_id')
+    message = data.get('message')
+    keynum = message.get('keynum', 0)  # Default to 0 if not provided
+
+    # Increment ID first, then use it
+    last_alarm_id += 1
+    alarms.append({'id': last_alarm_id, 'peer_id': peer_id, 'message': message, 'keynum': keynum})
+
+    return jsonify({'status': 'success', 'message': 'Alarm sent successfully.', 'id': last_alarm_id})
+
+@app.route('/api/fetchAlarm', methods=['GET'])
+def fetch_key_refresh_alarms():
+    last_id = request.args.get('last_id', 0, type=int)
+    # Fetch only new alarms based on the last_id provided by the client
+    new_alarms = [alarm for alarm in alarms if alarm['id'] > last_id]
+    return jsonify({'new_alarms': new_alarms})
+
+
 
 
 bcrypt = Bcrypt(app)
