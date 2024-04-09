@@ -150,18 +150,10 @@ def fetch_messages_from_db(peer_id, last_message_id):
         'sender_id': msg[1],
         'receiver_id': msg[2],
         'ciphertext': msg[3],
-        'iv': msg[4].hex(),  # Assuming binary data
-        'hmac': msg[5].hex(),  # Assuming binary data
+        'iv': msg[4],  # Assuming binary data
+        'hmac': msg[5],  # Assuming binary data
         'created_at': msg[6].strftime("%Y-%m-%d %H:%M:%S"),
     } for msg in messages]
-
-
-def base64_to_hex(base64_str):
-    # Decode the Base64 string to bytes
-    byte_data = base64.b64decode(base64_str)
-    # Convert bytes to hexadecimal string and return
-    return byte_data.hex()
-
 
 @app.route('/api/send_message', methods=['POST'])
 def send_message():
@@ -179,16 +171,14 @@ def send_message():
     iv_base64 = request.json['iv']
     hmac_base64 = request.json['hmac']
 
-    iv = base64_to_hex(iv_base64)
-    hmac = base64_to_hex(hmac_base64)
-
     # simply prints the received data
     print(f"Received encrypted message from {sender_id} to {receiver_id}")
     print(f"Ciphertext: {ciphertext}")
-    print(f"IV: {iv}")
-    print(f"HMAC: {hmac}")
+    print(f"IV: {iv_base64}")
+    print(f"HMAC: {hmac_base64}")
+    
+    save_encrypted_message(sender_id, receiver_id, ciphertext, iv_base64, hmac_base64)
 
-    save_encrypted_message(sender_id, receiver_id, ciphertext, iv, hmac)
 
     return jsonify({'status': 'success', 'message': 'Encrypted message sent'}), 200
 
@@ -218,7 +208,6 @@ def get_latest_iv(peer_id):
 
     try:
         cur = mysql.connection.cursor()
-        # Query to find the IV of the latest message between the two users
         query = """
             SELECT iv
             FROM messages
@@ -230,10 +219,9 @@ def get_latest_iv(peer_id):
         result = cur.fetchone()
         cur.close()
 
-        # If a message is found, return its IV as hexadecimal, otherwise return '-1'
-        # Accessing the first item of the tuple directly
-        latest_iv = result[0] if result else '-1'
-        return jsonify({'iv': latest_iv.hex() if latest_iv != '-1' else latest_iv}), 200
+        # If a message is found, return its IV, otherwise return the base64-encoded initial IV
+        latest_iv_base64 = result[0] if result else "AAAAAAAAAAAAAAAAAAAAAA=="
+        return jsonify({'iv': latest_iv_base64}), 200
     except Exception as e:
         print(f"Error fetching the latest IV: {e}")
         return jsonify({'error': 'Internal Server Error'}), 500
