@@ -340,6 +340,7 @@ async function sendMessage() {
         console.error('Error sending message:', error); // Log any errors
     });
 }
+
 // Helper function to convert Base64 to ArrayBuffer
 function base64ToArrayBuffer(base64) {
     const binaryString = window.atob(base64);
@@ -590,25 +591,13 @@ function fetchMessages() {
         .catch(error => console.error('Error fetching messages:', error));
 }
 
-// Display a single message
-async function displayMessage(encryptedMessage) {
-    if (!encryptedMessage) {
-        return;
-    }
-
-    // Retrieve AES and MAC keys from localStorage and import them
-    const aesKeyJwk = JSON.parse(localStorage.getItem(`${info}`));
-    const macKeyJwk = JSON.parse(localStorage.getItem(`${macinfo}`));
-    const aesKey = await window.crypto.subtle.importKey("jwk", aesKeyJwk, { name: "AES-GCM" }, true, ["decrypt"]);
-    const macKey = await window.crypto.subtle.importKey("jwk", macKeyJwk, { name: "HMAC", hash: { name: "SHA-256" } }, true, ["verify"]);
-
+async function decryptMessage(encryptedMessage, aesKey, macKey) {
     // Convert IV, HMAC, and ciphertext from Base64 to ArrayBuffer
     const ivArrayBuffer = base64ToArrayBuffer(encryptedMessage.iv);
     const hmacArrayBuffer = base64ToArrayBuffer(encryptedMessage.hmac);
     const ciphertextArrayBuffer = base64ToArrayBuffer(encryptedMessage.ciphertext);
-
-    hmac_hex = arrayBufferToHex(hmacArrayBuffer);
-    iv_hex = arrayBufferToHex(ivArrayBuffer)
+    const iv_hex = arrayBufferToHex(ivArrayBuffer); // Convert IV to hex for logging
+    const hmac_hex = arrayBufferToHex(hmacArrayBuffer); // Convert HMAC to hex for logging
 
     // Verify IV HMAC to ensure it hasn't been tampered with
     const isHmacValid = await window.crypto.subtle.verify(
@@ -617,40 +606,60 @@ async function displayMessage(encryptedMessage) {
         hmacArrayBuffer, // The HMAC signature from the message
         ivArrayBuffer // The IV used for encryption
     );
-    
+
     if (!isHmacValid) {
         console.error("HMAC verification failed: data integrity compromised.");
-        return;
+        throw new Error("HMAC verification failed");
     }
 
     // Decrypt the message
+    const decryptedData = await window.crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: ivArrayBuffer },
+        aesKey,
+        ciphertextArrayBuffer
+    );
+    const plaintext = new TextDecoder().decode(decryptedData);
+
+    // Here is your original log statement included with the corrected function context
+    console.log("Plaintext:", plaintext, ",Hmac_Valid=", isHmacValid, ",iv=", iv_hex, ",hmac=", hmac_hex, ",ciphertext=", encryptedMessage.ciphertext, ",associatedData=", `CHAT_MSG_FROM_${encryptedMessage.sender_id}_TO_${encryptedMessage.receiver_id}`);
+
+    return plaintext;
+}
+
+// Main function to display the message
+async function displayMessage(message) {
     let plaintext;
-    const associatedData = `CHAT_MSG_FROM_${peer_id}_TO_${myID}`;
-    try {
-        const decryptedData = await window.crypto.subtle.decrypt(
-            { name: "AES-GCM", iv: ivArrayBuffer },
-            aesKey,
-            ciphertextArrayBuffer,
-            associatedData
-        );
-        plaintext = new TextDecoder().decode(decryptedData);
-        console.log("plaintext:",plaintext,",Hmac_Valid=",isHmacValid,",iv=",iv_hex,",hmac=",hmac_hex,",ciphertext=",encryptedMessage.ciphertext,",associatedData=",associatedData);
-    } catch (error) {
-        console.error("Decryption failed", error);
-        return;
+    let isEncrypted = message.iv && message.hmac && message.ciphertext;
+
+    // Determine sender and receiver strings
+    const sender = message.sender_id == myID ? "me" : (userInfo[message.sender_id] || `User ${message.sender_id}`);
+    const receiver = message.receiver_id == myID ? "me" : (userInfo[message.receiver_id] || `User ${message.receiver_id}`);
+
+    if (isEncrypted) {
+        // Retrieve AES and MAC keys from localStorage and import them
+        const aesKeyJwk = JSON.parse(localStorage.getItem(`${info}`));
+        const macKeyJwk = JSON.parse(localStorage.getItem(`${macinfo}`));
+        const aesKey = await window.crypto.subtle.importKey("jwk", aesKeyJwk, { name: "AES-GCM" }, true, ["decrypt"]);
+        const macKey = await window.crypto.subtle.importKey("jwk", macKeyJwk, { name: "HMAC", hash: { name: "SHA-256" } }, true, ["verify"]);
+
+        try {
+            plaintext = await decryptMessage(message, aesKey, macKey);
+        } catch (error) {
+            console.error("Decryption error:", error);
+            return;
+        }
+    } else {
+        // If the message is not encrypted, assume plaintext is directly available
+        plaintext = message.text; // Assuming plaintext messages have a 'text' property
     }
 
-    // Append decrypted message to chat
+    // Append message to chat
     const messagesContainer = document.getElementById('messages');
     const messageElement = document.createElement('div');
-    
-    // Determine sender and receiver strings
-    const sender = encryptedMessage.sender_id == myID ? "me" : (userInfo[encryptedMessage.sender_id] || `User ${encryptedMessage.sender_id}`);
-    const receiver = encryptedMessage.receiver_id == myID ? "me" : (userInfo[encryptedMessage.receiver_id] || `User ${encryptedMessage.receiver_id}`);
-    
     messageElement.textContent = `From ${sender} to ${receiver}: ${plaintext}`;
     messagesContainer.appendChild(messageElement);
 }
+
 
 
 
