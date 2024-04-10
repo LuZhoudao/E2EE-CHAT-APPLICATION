@@ -192,7 +192,7 @@ function incrementUint8Array(value) {
 
 let salt =new Uint8Array(16);
 
-let keynum = 1; //store key start from index 0
+let keynum = 0; //store key start from index 0
 
 async function startKeyDerivation() {
     const sharedSecret = await deriveSharedSecret(); 
