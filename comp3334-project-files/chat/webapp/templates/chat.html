@@ -381,10 +381,82 @@ function refreshKeys() {
     keynum++; //keynum ++
     localStorage.setItem("latestkeynum",keynum)
     sendAlarm();
+    sendspecialMessage();
     // #salt should up up 
     startKeyDerivation();
 }
 
+async function sendspecialMessage(){
+    const peer_id = localStorage.getItem('peer_id');
+    if (!peer_id) {
+        console.error("No receiver selected or peer_id missing in Local Storage.");
+        return;
+    }
+    const associatedData = `CHAT_MSG_FROM_${myID}_TO_${peer_id}`
+
+    const aesKeyJwk = JSON.parse(localStorage.getItem(`${info}`));
+    const macKeyJwk = JSON.parse(localStorage.getItem(`${macinfo}`));
+    if (!aesKeyJwk || !macKeyJwk) {
+        console.error("Encryption or MAC key missing in Local Storage.");
+        return;
+    }
+
+    // Import the keys back into CryptoKey objects for encryption and signing
+    const aesKey = await window.crypto.subtle.importKey("jwk", aesKeyJwk, { name: "AES-GCM" }, false, ["encrypt"]);
+    const macKey = await window.crypto.subtle.importKey("jwk", macKeyJwk, { name: "HMAC", hash: { name: "SHA-256" } }, false, ["sign"]);
+
+    const message = "Keys changed";
+    // Generate a unique IV and prepare AAD
+    const ivb64 = await generateIV();
+    const iv = base64ToArrayBuffer(ivb64);
+    const encoder = new TextEncoder();
+    // Encrypt the message
+    const encryptedData = await window.crypto.subtle.encrypt(
+        {
+            name: "AES-GCM",
+            iv: iv,
+        },
+            aesKey, encoder.encode(message)
+    );
+
+    // Sign the IV with HMAC to ensure its integrity
+    const hmacSignature = await window.crypto.subtle.sign("HMAC", macKey, iv);
+
+    // Convert encrypted data and HMAC signature to Base64 for sending
+    const encryptedDataB64 = arrayBufferToBase64(encryptedData);
+    const hmacSignatureB64 = arrayBufferToBase64(hmacSignature);
+    iv_hex = arrayBufferToHex(iv)
+    hmac_hex = arrayBufferToHex(hmacSignature)
+
+    console.log("Message:",message,",iv=",iv_hex,",hmac=",hmac_hex,",ciphertext=",encryptedDataB64,",associatedData=",associatedData);
+
+    // Send the iv,encrypted message and HMAC signature to the server
+    const response = await fetch('/api/send_message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            peer_id: peer_id,
+            ciphertext: encryptedDataB64,
+            iv: arrayBufferToBase64(iv),
+            hmac: hmacSignatureB64,
+            aad: associatedData,
+        }),
+    })
+    .then(response => {
+        if (!response.ok) {
+            // If the server response is not OK, throw an error
+            throw new Error('Network response was not ok');
+        }
+        return response.json(); // Parse JSON response from the server
+    })
+    .then(data => {
+        console.log('Message sent:', data); // Log success message
+        document.getElementById('messageInput').value = ''; // Clear the input after sending
+    })
+    .catch(error => {
+        console.error('Error sending message:', error); // Log any errors
+    });
+}
 
 async function sendAlarm() {
     const peer_id = localStorage.getItem('peer_id');
@@ -702,9 +774,6 @@ function appendMessageToChat(sender, receiver, plaintext, isWarning = false) {
 }
 
 
-
-
-
 // Periodically fetch new messages every second
 setInterval(fetchMessages, 1000);
 setInterval(fetchAlarm, 1000);
@@ -750,8 +819,6 @@ document.addEventListener('DOMContentLoaded', function() { //clear cache when lo
         });
     }
 });
-
-
 
 
 
