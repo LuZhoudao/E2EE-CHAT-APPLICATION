@@ -8,8 +8,8 @@ services:
       - 8443:8443
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
-      - ./group10.crt:/etc/nginx/group10.crt 
-      - ./group10.key:/etc/nginx/group10.key  
+      - ./cacert.crt:/etc/nginx/cacert.crt 
+      - ./cakey.pem:/etc/nginx/cakey.pem
     depends_on:
       - webapp
 
