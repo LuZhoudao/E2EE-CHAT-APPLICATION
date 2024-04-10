@@ -192,8 +192,8 @@ function incrementUint8Array(value) {
 
 let salt =new Uint8Array(16);
 
-let keynum = 0; //store key start from index 0
-    
+let keynum = 1; //store key start from index 0
+
 async function startKeyDerivation() {
     const sharedSecret = await deriveSharedSecret(); 
     //const salt =new Uint8Array(16); // Generate a unique salt 
@@ -379,6 +379,7 @@ function refreshKeys() {
     localStorage.setItem(`${info}_${keynum}`,aesKey);
     localStorage.setItem(`${macinfo}_${keynum}`,macKey);
     keynum++; //keynum ++
+    localStorage.setItem("latestkeynum",keynum)
     sendAlarm();
     // #salt should up up 
     startKeyDerivation();
@@ -627,27 +628,46 @@ async function decryptMessage(encryptedMessage, aesKey, macKey) {
     return plaintext;
 }
 
-async function tryDecryptWithHistoricalKeys(encryptedMessage) {  //use history key to decrypt
-    for (let i = keynum; i >= 0; i--) {
-        const aesKeyName = i === keynum ? `${info}` : `${info}_${i}`;
-        const macKeyName = i === keynum ? `${macinfo}` : `${macinfo}_${i}`;
+async function tryDecryptWithHistoricalKeys(encryptedMessage) {
+    const latestKeyNum = localStorage.getItem("latestkeynum");
+    let decryptionSuccessful = false;
+    for (let i = 0; i <= latestKeyNum; i++) {
+        const aesKeyName = i === 0 ? info : `${info}_${i}`;
+        const macKeyName = i === 0 ? macinfo : `${macinfo}_${i}`;
         
         const aesKeyJwk = JSON.parse(localStorage.getItem(aesKeyName));
         const macKeyJwk = JSON.parse(localStorage.getItem(macKeyName));
-        if (!aesKeyJwk || !macKeyJwk) continue;
+        
+        if (!aesKeyJwk || !macKeyJwk) continue; // Skip if key pair not found
 
         const aesKey = await window.crypto.subtle.importKey("jwk", aesKeyJwk, { name: "AES-GCM" }, true, ["decrypt"]);
         const macKey = await window.crypto.subtle.importKey("jwk", macKeyJwk, { name: "HMAC", hash: { name: "SHA-256" } }, true, ["verify"]);
 
         try {
-            return await decryptMessage(encryptedMessage, aesKey, macKey);
+            const plaintext = await decryptMessage(encryptedMessage, aesKey, macKey);
+            console.log(`Decryption successful with keys: ${aesKeyName}, ${macKeyName}`);
+            decryptionSuccessful = true;
+            const ivArrayBuffer = base64ToArrayBuffer(encryptedMessage.iv);
+            const hmacArrayBuffer = base64ToArrayBuffer(encryptedMessage.hmac);
+            const iv_hex = arrayBufferToHex(ivArrayBuffer);
+            const hmac_hex = arrayBufferToHex(hmacArrayBuffer);
+            console.log("Plaintext:", plaintext, ",Hmac_Valid=", true, ",iv=", iv_hex, ",hmac=", hmac_hex, ",ciphertext=", encryptedMessage.ciphertext, ",associatedData=", encryptedMessage.aad);
+            return plaintext;
         } catch (error) {
-            // If decryption with this key pair fails, continue to try with the next pair
-            console.error(`Decryption attempt with key version ${i} failed: ${error}`);
+            console.error(`Decryption attempt with keys: ${aesKeyName}, ${macKeyName} failed.`, error);
+            // Continue trying with the next key pair
         }
     }
-    throw new Error("Decryption failed with all available keys.");
+
+    if (!decryptionSuccessful) {
+        
+        const plaintext = await decryptMessage(encryptedMessage, aesKey, macKey);
+        // Log a warning or handle cases where no keys could decrypt the message
+        console.warn("Decryption failed with all available keys.");
+        throw new Error("Decryption failed with all available keys.");
+    }
 }
+
 
 
 
@@ -662,8 +682,7 @@ async function displayMessage(message) {
             plaintext = await tryDecryptWithHistoricalKeys(message);
         } catch (error) {
             console.error("Decryption error:", error);
-            // Specific warning message for decryption failure
-            plaintext = "⚠️ This message could not be decrypted. It may have been encrypted with a key that is no longer available.";
+            plaintext = "⚠️ This message could not be decrypted.";
         }
     } else {
         plaintext = message.text; // Non-encrypted message case
