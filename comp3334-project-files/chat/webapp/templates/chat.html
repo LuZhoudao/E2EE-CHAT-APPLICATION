@@ -710,7 +710,10 @@ async function tryDecryptWithHistoricalKeys(encryptedMessage) {
         const aesKeyJwk = JSON.parse(localStorage.getItem(aesKeyName));
         const macKeyJwk = JSON.parse(localStorage.getItem(macKeyName));
         
-        if (!aesKeyJwk || !macKeyJwk) continue; // Skip if key pair not found
+        if (!aesKeyJwk || !macKeyJwk) {
+            console.log(`Key pair not found for index ${i}. Skipping.`);
+            continue;
+        }// Skip if key pair not found
 
         const aesKey = await window.crypto.subtle.importKey("jwk", aesKeyJwk, { name: "AES-GCM" }, true, ["decrypt"]);
         const macKey = await window.crypto.subtle.importKey("jwk", macKeyJwk, { name: "HMAC", hash: { name: "SHA-256" } }, true, ["verify"]);
