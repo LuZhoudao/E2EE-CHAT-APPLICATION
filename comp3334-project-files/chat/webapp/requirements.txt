@@ -13,3 +13,4 @@ pyqrcode
 flask_login
 wtforms
 requests
+Pillow
