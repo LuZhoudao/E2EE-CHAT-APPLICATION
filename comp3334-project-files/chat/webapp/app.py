@@ -4,14 +4,14 @@ from flask_session import Session
 import yaml
 from flask_bcrypt import Bcrypt
 from Crypto.Cipher import AES
-from helpers import AESencrypt, AESdecrypt, get_totp_uri, verify_totp,check_password_strength
+from helpers import AESencrypt, AESdecrypt, get_totp_uri, verify_totp,check_password_strength, generate_captcha_image
 from base64 import b64encode, b64decode
 import os
 import base64
 from io import BytesIO
 import pyqrcode
 import onetimepass
-
+import io
 import requests
 
 app = Flask(__name__)
@@ -87,7 +87,8 @@ def login():
         }
         response = requests.post('https://www.google.com/recaptcha/api/siteverify', data=data)
         result = response.json()
-        if result['success']:
+        #captcha()
+        if request.json.get('captcha', '').upper() == session.get('captcha', '').upper() and result['success']:
             # reCAPTCHA 验证成功
             if account and bcrypt.check_password_hash(account[1], password):
                 session['user_id_temp'] = account[0]  # Temporarily store user ID
@@ -290,7 +291,6 @@ def register():
         if password != retyped_password:
             flash("Different passwords, please input again", 'danger')
             return render_template('register.html')
-
 
         recaptcha_response = request.form['g-recaptcha-response']
         # 向 reCAPTCHA 服务器发送验证请求
@@ -586,6 +586,21 @@ def fetch_key_refresh_alarms():
     new_alarms = [alarm for alarm in alarms if alarm['id'] > last_id]
     return jsonify({'new_alarms': new_alarms})
 
+@app.route('/captcha')
+def captcha():
+    # 使用上述函数生成验证码图片
+    image, captcha_text = generate_captcha_image()
+
+    # 将验证码文本存储到session，以便之后进行验证
+    session['captcha'] = captcha_text
+
+    buf = io.BytesIO()
+    image.save(buf, format='PNG')
+    buf.seek(0)
+    return buf.getvalue(), 200, {
+        'Content-Type': 'image/png',
+        'Content-Length': str(len(buf.getvalue()))
+    }
 
 
 

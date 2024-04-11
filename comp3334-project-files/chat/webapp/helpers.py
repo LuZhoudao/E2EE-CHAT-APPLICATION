@@ -1,5 +1,4 @@
 import os
-
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 from Crypto.Random import get_random_bytes
@@ -9,6 +8,34 @@ from wtforms import StringField
 from wtforms.validators import DataRequired
 import base64
 import re
+from PIL import Image, ImageDraw, ImageFont
+import random
+import string
+
+def generate_captcha_image():
+    # 定义图片大小及背景颜色
+    image = Image.new('RGB', (120, 30), color=(73, 109, 137))
+
+    # 使用系统自带字体，或指定字体文件路径
+    font_path = "./arial.ttf"
+    fnt = ImageFont.truetype(font_path, 15)
+    d = ImageDraw.Draw(image)
+
+    # 生成5位数的验证码文本
+    captcha_text = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+    d.text((10, 10), captcha_text, font=fnt, fill=(255, 255, 0))
+
+    # 添加干扰线条和噪点
+    for _ in range(random.randint(3, 5)):
+        start = (random.randint(0, image.width), random.randint(0, image.height))
+        end = (random.randint(0, image.width), random.randint(0, image.height))
+        d.line([start, end], fill=(random.randint(50, 200), random.randint(50, 200), random.randint(50, 200)))
+
+    for _ in range(100):
+        xy = (random.randrange(0, image.width), random.randrange(0, image.height))
+        d.point(xy, fill=(random.randint(50, 200), random.randint(50, 200), random.randint(50, 200)))
+
+    return image, captcha_text
 
 
 
