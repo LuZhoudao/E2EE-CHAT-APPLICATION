@@ -13,18 +13,20 @@ import pyqrcode
 import onetimepass
 import io
 import requests
+from datetime import timedelta
 
 app = Flask(__name__)
 
 # Configure secret key and Flask-Session
 app.config['SECRET_KEY'] = b'9\x13\x07j\xf9\x19\xff\x94\xb6\x04\x91\xf31T\x96c'
 app.config['SESSION_TYPE'] = 'filesystem'  # Options: 'filesystem', 'redis', 'memcached', etc.
-app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_PERMANENT'] = True
 app.config['SESSION_USE_SIGNER'] = True  # To sign session cookies for extra security
 app.config['SESSION_FILE_DIR'] = './sessions'  # Needed if using filesystem type
 app.config['SESSION_COOKIE_SECURE'] = True  # Enable for production on HTTPS
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Strict'  # Mitigate CSRF attacks
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=10 )
 
 # Load database configuration from db.yaml or configure directly here
 db_config = yaml.load(open('db.yaml'), Loader=yaml.FullLoader)
