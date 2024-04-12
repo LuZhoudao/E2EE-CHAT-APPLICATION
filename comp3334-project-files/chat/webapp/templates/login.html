@@ -74,26 +74,6 @@
             var captchaImg = document.getElementById('captcha_img');
             captchaImg.src = '/captcha?' + Date.now();
         }
-
-        function verifyCaptcha() {
-            var userInput = document.getElementById("captcha_input").value;
-
-            $.ajax({
-                url: "/verify-captcha",
-                type: "POST",
-                contentType: "application/json", // JSON
-                data: JSON.stringify({
-                    captcha: userInput
-                }),
-                success: function(response) {
-                    alert("Verification successful！");
-                },
-                error: function(xhr, status, error) {
-                    alert("Verification failed：" + xhr.responseText);
-                }
-            });
-        }
-
     </script>
 </body>
 </html>

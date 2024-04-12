@@ -79,7 +79,7 @@ async function GenerateKeypair() {
                 name: "ECDH",
                 namedCurve: "P-384"
             },
-            true, // set to true to make the keys extractable (i.e., you can export them)
+            true, 
             ["deriveKey", "deriveBits"]
         );
 
@@ -117,7 +117,6 @@ async function GenerateKeypair() {
 }
 
 // Call the function to check for an existing private key or generate a new one
-//checkAndGenerateKeys().catch(console.error);
 
 if (!localStorage.getItem('privateKey')){
     GenerateKeypair().catch(console.error);
@@ -630,10 +629,10 @@ async function deriveSharedSecret() {
         {
             name: "SHA-256"
         },
-        bits // The derived bits you want to hash
+        bits 
     );
 
-    // Convert the hash to a Base64 string to make it easier to compare or transmit
+    // Convert the hash for transit
     const sharedsecret_hex = arrayBufferToHex(hashBuffer);
 
     console.log("Shared secret: ", sharedsecret_hex);
@@ -699,7 +698,6 @@ async function decryptMessage(encryptedMessage, aesKey, macKey) {
     );
     const plaintext = new TextDecoder().decode(decryptedData);
 
-    // Here is your original log statement included with the corrected function context
     console.log("Plaintext:", plaintext, ",Hmac_Valid=", isHmacValid, ",iv=", iv_hex, ",hmac=", hmac_hex, ",ciphertext=", encryptedMessage.ciphertext, ",associatedData=", encryptedMessage.aad);
 
     return plaintext;
