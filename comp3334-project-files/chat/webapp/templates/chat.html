@@ -48,6 +48,7 @@ let userInfo = {};
 let userPrivateKey;
 let sharedSecrets = {}; // Object to store shared secrets with each peer
 let ivCounters = {};
+let keynum = 1;
 
 
 async function fetchAndSetupEncryptionWithPeer(peerId) {
@@ -122,6 +123,11 @@ if (!localStorage.getItem('privateKey')){
     GenerateKeypair().catch(console.error);
     console.log("no privateKey found in localstorage, regenerate new keykepar!");
 }
+if (!localStorage.getItem('keynum')){
+    console.log("No chat history.");
+} else {
+    keynum = localStorage.getItem('keynum');
+}
 
 let info = 'none';
 let macinfo = 'none';
@@ -191,8 +197,6 @@ function incrementUint8Array(value) {
 }
 
 let salt =new Uint8Array(16);
-
-let keynum = 0; //store key start from index 0
 
 async function startKeyDerivation() {
     const sharedSecret = await deriveSharedSecret(); 
@@ -378,8 +382,9 @@ function refreshKeys() {
     const macKey=localStorage.getItem(`${macinfo}`);
     localStorage.setItem(`${info}_${keynum}`,aesKey);
     localStorage.setItem(`${macinfo}_${keynum}`,macKey);
-    keynum++; //keynum ++
-    localStorage.setItem("latestkeynum",keynum)
+    localStorage.setItem('keynum',keynum) //latestkeynum
+    console.log(keynum);
+    keynum++;
     sendAlarm();
     sendspecialMessage();
     // #salt should up up 
@@ -464,13 +469,11 @@ async function sendAlarm() {
         console.error("No peer selected for key refresh alarm.");
         return;
     }
-    const currentKeyNum = keynum; // Assuming keynum is globally accessible or stored in localStorage
-
     // Define the alarm message with keynum included
     const alarmMessage = {
         type: "key-refresh",
         content: "Keys have been refreshed",
-        keynum: currentKeyNum
+        keynum: keynum
     };
 
     // Send the alarm to the server using the Flask endpoint
@@ -482,6 +485,7 @@ async function sendAlarm() {
             message: alarmMessage
         }),
     });
+    console.log("sent alarm")
 }
 
 let lastFetchedAlarmId = 0;  // Keep track of the last fetched alarm ID
@@ -491,10 +495,10 @@ async function fetchAlarm() {
         const data = await response.json();
         if (data.new_alarms && data.new_alarms.length > 0) {
             data.new_alarms.forEach(alarm => {
-                if (alarm.message.type === "key-refresh") {
+                if (parseInt(alarm.peer_id, 10) === parseInt(myID, 10) && alarm.message.type === "key-refresh") {
                     const receivedKeyNum = alarm.message.keynum;
                     lastFetchedAlarmId = Math.max(lastFetchedAlarmId, alarm.id);
-                    if ((receivedKeyNum !== keynum) && peer_id != -1) {
+                    if (peer_id != -1) {
                         for(i=keynum;i<receivedKeyNum;i++){ //keep the key the same with other user
                             console.log('refreshKeys called');
                             incrementUint8Array(salt);  //salt ++
@@ -502,9 +506,10 @@ async function fetchAlarm() {
                             const macKey=localStorage.getItem(`${macinfo}`);
                             localStorage.setItem(`${info}_${keynum}`,aesKey);
                             localStorage.setItem(`${macinfo}_${keynum}`,macKey);
-                            keynum++; //keynum ++
+                            localStorage.setItem('keynum', keynum);
                             startKeyDerivation();
                         }
+                        keynum = receivedKeyNum;
                     }else{
                         return;
                     }
@@ -701,11 +706,12 @@ async function decryptMessage(encryptedMessage, aesKey, macKey) {
 }
 
 async function tryDecryptWithHistoricalKeys(encryptedMessage) {
-    const latestKeyNum = localStorage.getItem("latestkeynum");
     let decryptionSuccessful = false;
-    for (let i = 0; i <= latestKeyNum; i++) {
+    end = localStorage.getItem('keynum') || 0;
+    for (let i = 0; i <= end; i++) {
         const aesKeyName = i === 0 ? info : `${info}_${i}`;
         const macKeyName = i === 0 ? macinfo : `${macinfo}_${i}`;
+        console.log(`attempted: ${aesKeyName}, ${macKeyName}`);
         
         const aesKeyJwk = JSON.parse(localStorage.getItem(aesKeyName));
         const macKeyJwk = JSON.parse(localStorage.getItem(macKeyName));
@@ -722,11 +728,6 @@ async function tryDecryptWithHistoricalKeys(encryptedMessage) {
             const plaintext = await decryptMessage(encryptedMessage, aesKey, macKey);
             console.log(`Decryption successful with keys: ${aesKeyName}, ${macKeyName}`);
             decryptionSuccessful = true;
-            const ivArrayBuffer = base64ToArrayBuffer(encryptedMessage.iv);
-            const hmacArrayBuffer = base64ToArrayBuffer(encryptedMessage.hmac);
-            const iv_hex = arrayBufferToHex(ivArrayBuffer);
-            const hmac_hex = arrayBufferToHex(hmacArrayBuffer);
-            console.log("Plaintext:", plaintext, ",Hmac_Valid=", true, ",iv=", iv_hex, ",hmac=", hmac_hex, ",ciphertext=", encryptedMessage.ciphertext, ",associatedData=", encryptedMessage.aad);
             return plaintext;
         } catch (error) {
             console.error(`Decryption attempt with keys: ${aesKeyName}, ${macKeyName} failed.`, error);
@@ -735,9 +736,6 @@ async function tryDecryptWithHistoricalKeys(encryptedMessage) {
     }
 
     if (!decryptionSuccessful) {
-        
-        const plaintext = await decryptMessage(encryptedMessage, aesKey, macKey);
-        // Log a warning or handle cases where no keys could decrypt the message
         console.warn("Decryption failed with all available keys.");
         throw new Error("Decryption failed with all available keys.");
     }

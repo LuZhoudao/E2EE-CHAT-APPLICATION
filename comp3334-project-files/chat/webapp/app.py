@@ -567,7 +567,7 @@ def send_key_refresh_alarm():
     data = request.json
     peer_id = data.get('peer_id')
     message = data.get('message')
-    keynum = message.get('keynum', 0)  # Default to 0 if not provided
+    keynum = message.get('keynum', 1)  # Default to 0 if not provided
 
     # Increment ID first, then use it
     last_alarm_id += 1
