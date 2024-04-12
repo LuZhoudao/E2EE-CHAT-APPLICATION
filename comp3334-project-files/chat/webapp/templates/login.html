@@ -12,8 +12,8 @@
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <style>
         .reload-captcha-btn {
-            margin-top: 5px; 
-            font-weight: bold; 
+            margin-top: 5px;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -72,14 +72,14 @@
     <script>
         function reloadCaptcha() {
             var captchaImg = document.getElementById('captcha_img');
-            captchaImg.src = '/captcha?' + Date.now(); 
+            captchaImg.src = '/captcha?' + Date.now();
         }
 
         function verifyCaptcha() {
             var userInput = document.getElementById("captcha_input").value;
-        
+
             $.ajax({
-                url: "/verify-captcha", 
+                url: "/verify-captcha",
                 type: "POST",
                 contentType: "application/json", // JSON
                 data: JSON.stringify({
@@ -93,7 +93,7 @@
                 }
             });
         }
-        
+
     </script>
 </body>
 </html>
