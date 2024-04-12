@@ -10,7 +10,12 @@
     <link href="{{ url_for('static', filename='styles.css') }}" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-
+    <style>
+        .reload-captcha-btn {
+            margin-top: 5px; 
+            font-weight: bold; 
+        }
+    </style>
 </head>
 <body>
     <div class="login-container">
@@ -35,36 +40,19 @@
                 <input type="password" class="form-control" id="password" name="password" required>
             </div>
             <div>
-                <img src="Captcha Image" alt="Captcha Image">
+                <!-- Display CAPTCHA image -->
+                <img src="/captcha" alt="Captcha Image" id="captcha_img">
                 <br>
-                <label for="captcha_input">Please input CAPTCHA：</label>
-                <input type="text" id="captcha_input">
-
-                <script>
-                    function verifyCaptcha() {
-                        var userInput = document.getElementById("captcha_input").value;
-
-                        $.ajax({
-                            url: "app.py",
-                            type: "POST",
-                            data: {
-                                captcha: userInput
-                            },
-                            success: function(response) {
-                                alert("Verification successful！");
-                            },
-                            error: function(xhr, status, error) {
-                                alert("verification failed：" + error);
-                            }
-                        });
-                    }
-                </script>
+                <button type="button" onclick="reloadCaptcha()" class="btn btn-info reload-captcha-btn">Reload CAPTCHA</button>
+                <br>
+                <label for="captcha_input">Please input CAPTCHA:</label>
+                <input type="text" id="captcha_input" name="captcha_input" required>
             </div>
             <div class="g-recaptcha"
                  data-sitekey="6LeMXbQpAAAAAOXcpk6Fk_J3RqaSW6MAOJxWY6AL"
                  data-theme="light"
                  data-size="normal"
-                 data-callback="verify"
+                 data-callback="verifyCaptcha"
                  data-expired-callback="expired"
                  data-error-callback="error"
                  data-badge="inline"
@@ -81,6 +69,31 @@
             <a href="/register" class="btn btn-secondary">Register</a>
         </div>
     </div>
+    <script>
+        function reloadCaptcha() {
+            var captchaImg = document.getElementById('captcha_img');
+            captchaImg.src = '/captcha?' + Date.now(); 
+        }
 
+        function verifyCaptcha() {
+            var userInput = document.getElementById("captcha_input").value;
+        
+            $.ajax({
+                url: "/verify-captcha", 
+                type: "POST",
+                contentType: "application/json", // JSON
+                data: JSON.stringify({
+                    captcha: userInput
+                }),
+                success: function(response) {
+                    alert("Verification successful！");
+                },
+                error: function(xhr, status, error) {
+                    alert("Verification failed：" + xhr.responseText);
+                }
+            });
+        }
+        
+    </script>
 </body>
 </html>

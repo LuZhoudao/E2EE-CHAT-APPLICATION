@@ -601,6 +601,14 @@ def captcha():
         'Content-Type': 'image/png',
         'Content-Length': str(len(buf.getvalue()))
     }
+    
+@app.route('/verify-captcha', methods=['POST'])
+def verify_captcha():
+    data = request.json
+    if 'captcha' in session and data.get('captcha') == session['captcha']:
+        return jsonify(success=True), 200
+    else:
+        return jsonify(success=False, message="Incorrect CAPTCHA"), 400
 
 
 
