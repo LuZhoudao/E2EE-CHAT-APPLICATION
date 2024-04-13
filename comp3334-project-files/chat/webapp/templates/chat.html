@@ -799,7 +799,6 @@ function eraseChat() {
     })
     .then(data => {
         console.log('Chat erased:', data);
-        localStorage.clear();
         clearChatBox(); // Clear the chat display
     })
     .catch(error => {
