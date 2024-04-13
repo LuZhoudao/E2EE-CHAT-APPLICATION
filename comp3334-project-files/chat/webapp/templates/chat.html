@@ -200,13 +200,9 @@ let salt =new Uint8Array(16);
 async function startKeyDerivation() {
     const sharedSecret = await deriveSharedSecret(); 
     //const salt =new Uint8Array(16); // Generate a unique salt 
-    if(!localStorage.getItem(salt)){
-        //console.log("no salt found in localstorage.")
-        localStorage.setItem("salt",salt)   
-    }else{
-        salt = localStorage.getItem(salt);
-    }
-    console.log("salt generated:",arrayBufferToHex(salt))
+    localStorage.setItem("salt",salt)   
+    console.log("salt:",arrayBufferToHex(salt))
+
     const { aesKey, macKey } = await deriveKeys(sharedSecret, salt, peer_id);
     if(!localStorage.getItem(`${info}`) || !localStorage.getItem(`${macinfo}`)){
         storeKeys(aesKey,macKey,peer_id); 
@@ -570,7 +566,6 @@ document.getElementById('userList').addEventListener('change', async(event) => {
     }
     
     clearChatBox();
-    fetchMessages(); // Fetch messages for the new selection
 });
 
 async function deriveSharedSecret() {
@@ -660,6 +655,7 @@ function fetchMessages() {
        
         return;
     } // Exit if no peer selected
+    setInterval(fetchAlarm, 1000);
     fetch(`/fetch_messages?last_message_id=${lastMessageId}&peer_id=${peer_id}`)
         .then(response => response.json())
         .then(data => {
@@ -777,7 +773,6 @@ function appendMessageToChat(sender, receiver, plaintext, isWarning = false) {
 
 // Periodically fetch new messages every second
 setInterval(fetchMessages, 1000);
-setInterval(fetchAlarm, 1000);
 
 // Erase Chat function using fetch API
 function eraseChat() {
@@ -841,7 +836,7 @@ function setupInactivityTimer() {
     function resetInactivityTimer() {
         clearTimeout(inactivityTimer);
         inactivityTimer = setTimeout(sendInactivityNotice, 20 * 60 * 1000);  // 20 minutes
-        console.log('Mouse click detected, inactivity timer reset.');
+        //console.log('Mouse click detected, inactivity timer reset.');
     }
     // Set up the event listener for mouse clicks
     document.addEventListener('click', resetInactivityTimer);
