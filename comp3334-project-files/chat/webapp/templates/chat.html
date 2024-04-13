@@ -821,6 +821,36 @@ document.addEventListener('DOMContentLoaded', function() { //clear cache when lo
 
 
 
+function setupInactivityTimer() {
+    let inactivityTimer;
+    function sendInactivityNotice() {
+        fetch('/api/sessionReset')
+            .then(response => {
+                if (response.ok) {
+                    console.log('Inactivity notice sent successfully.');
+                    return response.json();
+                }
+                throw new Error('Failed to fetch from server');
+            })
+            .then(data => console.log('Server response:', data.message))
+            .catch(error => console.error('Error sending inactivity notice:', error));
+    }
+    // Reset the timer <- when the mouse is clicked
+    function resetInactivityTimer() {
+        clearTimeout(inactivityTimer);
+        inactivityTimer = setTimeout(sendInactivityNotice, 20 * 60 * 1000);  // 20 minutes
+        console.log('Mouse click detected, inactivity timer reset.');
+    }
+    // Set up the event listener for mouse clicks
+    document.addEventListener('click', resetInactivityTimer);
+    resetInactivityTimer();
+}
+
+setupInactivityTimer();
+
+
+
+
 </script>
 </body>
 </html>

@@ -609,6 +609,17 @@ def captcha():
 #         return jsonify(success=False, message="Incorrect CAPTCHA"), 400
 
 
+#get request when no mouse click on js for 20 minites
+
+@app.route('/api/sessionReset', methods=['GET'])
+def handle_inactivity_notice():
+    if 'user_id' in session:
+        print('Received inactivity notice for user:', session['user_id'])
+        return jsonify({'message': 'Inactivity registered'}), 200
+    else:
+        return jsonify({'error': 'Session not active'}), 401
+
+
 bcrypt = Bcrypt(app)
 if __name__ == '__main__':
     app.run(debug=True)
