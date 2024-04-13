@@ -194,12 +194,13 @@ function incrementUint8Array(value) {
         }
     }
 }
-
+let salt;
 if(!localStorage.getItem("salt")){
         salt = new Uint8Array(16);
         localStorage.setItem("salt",arrayBufferToHex(salt));
     }
     else{
+        
         salt = localStorage.getItem("salt")
     }
 
@@ -304,11 +305,13 @@ async function sendMessage() {
     const ivb64 = await generateIV();
     const iv = base64ToArrayBuffer(ivb64);
     const encoder = new TextEncoder();
+    const AAD = encoder.encode(associatedData);
     // Encrypt the message
     const encryptedData = await window.crypto.subtle.encrypt(
         {
             name: "AES-GCM",
             iv: iv,
+            additionalData: AAD,
         },
             aesKey, encoder.encode(message)
     );
@@ -418,11 +421,13 @@ async function sendspecialMessage(){
     const ivb64 = await generateIV();
     const iv = base64ToArrayBuffer(ivb64);
     const encoder = new TextEncoder();
+    const AAD = encoder.encode(associatedData);
     // Encrypt the message
     const encryptedData = await window.crypto.subtle.encrypt(
         {
             name: "AES-GCM",
             iv: iv,
+            additionalData: AAD,
         },
             aesKey, encoder.encode(message)
     );
@@ -709,12 +714,18 @@ async function decryptMessage(encryptedMessage, aesKey, macKey) {
     if (!isHmacValid) {
         throw new Error("HMAC verification failed");
     }
-
+    const encoder = new TextEncoder();
+    const AAD = encoder.encode(encryptedMessage.aad);
+    console.log("AAD:",encryptedMessage.aad);
     // Decrypt the message
     const decryptedData = await window.crypto.subtle.decrypt(
-        { name: "AES-GCM", iv: ivArrayBuffer },
+        {
+        name: "AES-GCM",
+        iv: ivArrayBuffer, 
+        additionalData: AAD, 
+    },
         aesKey,
-        ciphertextArrayBuffer
+        ciphertextArrayBuffer,
     );
     const plaintext = new TextDecoder().decode(decryptedData);
 
