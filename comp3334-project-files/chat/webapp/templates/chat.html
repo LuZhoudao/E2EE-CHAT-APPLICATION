@@ -159,7 +159,7 @@ async function deriveKeys(sharedSecretBits, salt, peer_id) {
     const aesKey = await window.crypto.subtle.deriveKey(
         {
             name: "HKDF",
-            salt: salt,
+            salt: hexToArrayBuffer(localStorage.getItem("salt")),
             info: new TextEncoder().encode(info),
             hash: "SHA-256"
         },
@@ -172,7 +172,7 @@ async function deriveKeys(sharedSecretBits, salt, peer_id) {
     const macKey = await window.crypto.subtle.deriveKey(
         {
             name: "HKDF",
-            salt: salt,
+            salt: hexToArrayBuffer(localStorage.getItem("salt")),
             info: new TextEncoder().encode(macinfo),
             hash: "SHA-256"
         },
@@ -195,12 +195,17 @@ function incrementUint8Array(value) {
     }
 }
 
-let salt =new Uint8Array(16);
+if(!localStorage.getItem("salt")){
+        salt = new Uint8Array(16);
+        localStorage.setItem("salt",arrayBufferToHex(salt));
+    }
+    else{
+        salt = localStorage.getItem("salt")
+    }
 
 async function startKeyDerivation() {
     const sharedSecret = await deriveSharedSecret(); 
     //const salt =new Uint8Array(16); // Generate a unique salt 
-    localStorage.setItem("salt",salt)   
     console.log("salt:",arrayBufferToHex(salt))
 
     const { aesKey, macKey } = await deriveKeys(sharedSecret, salt, peer_id);
@@ -374,6 +379,7 @@ function arrayBufferToBase64(buffer) {
 function refreshKeys() {
     console.log('refreshKeys called');
     incrementUint8Array(salt);  //salt ++
+    localStorage.setItem("salt",arrayBufferToHex(salt));
     //store current pair of keys into the localstorage?
     const aesKey=localStorage.getItem(`${info}`);
     const macKey=localStorage.getItem(`${macinfo}`);
@@ -499,6 +505,7 @@ async function fetchAlarm() {
                         for(i=keynum;i<receivedKeyNum;i++){ //keep the key the same with other user
                             console.log('refreshKeys called');
                             incrementUint8Array(salt);  //salt ++
+                            localStorage.setItem("salt",arrayBufferToHex(salt));
                             const aesKey=localStorage.getItem(`${info}`);
                             const macKey=localStorage.getItem(`${macinfo}`);
                             localStorage.setItem(`${info}_${keynum}`,aesKey);
@@ -643,6 +650,21 @@ function arrayBufferToHex(buffer) {
     const hexString = byteArray.reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
     return hexString;
 }
+
+function hexToArrayBuffer(hex) {
+    if (hex.length % 2 !== 0) {
+        console.error('The hexadecimal string should have an even length');
+        return null;
+    }
+    const buffer = new ArrayBuffer(hex.length / 2);
+    const byteView = new Uint8Array(buffer);
+    for (let i = 0; i < hex.length; i += 2) {
+        byteView[i / 2] = parseInt(hex.substring(i, i + 2), 16);
+    }
+    return buffer;
+}
+
+
 
 // Clear chat box
 function clearChatBox() {
