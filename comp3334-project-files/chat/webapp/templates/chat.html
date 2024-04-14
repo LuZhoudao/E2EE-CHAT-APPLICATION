@@ -386,7 +386,7 @@ function arrayBufferToBase64(buffer) {
 
 // Refresh Keys function placeholder
 function refreshKeys() {
-    console.log('refreshKeys called');
+    //console.log('refreshKeys called');
     incrementUint8Array(salt);  //salt ++
     localStorage.setItem("salt",arrayBufferToHex(salt));
     //store current pair of keys into the localstorage?
@@ -397,7 +397,8 @@ function refreshKeys() {
     localStorage.setItem('keynum',keynum) //latestkeynum
     console.log(keynum);
     keynum++;
-    sendAlarm();
+    //sendAlarm();
+
     sendspecialMessage();
     // #salt should up up 
     startKeyDerivation();
@@ -476,67 +477,6 @@ async function sendspecialMessage(){
         console.error('Error sending message:', error); // Log any errors
     });
 }
-
-async function sendAlarm() {
-    const peer_id = localStorage.getItem('peer_id');
-    if (!peer_id) {
-        console.error("No peer selected for key refresh alarm.");
-        return;
-    }
-    // Define the alarm message with keynum included
-    const alarmMessage = {
-        type: "key-refresh",
-        content: "Keys have been refreshed",
-        keynum: keynum
-    };
-
-    // Send the alarm to the server using the Flask endpoint
-    const response = await fetch('/api/sendAlarm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            peer_id: peer_id,
-            message: alarmMessage
-        }),
-    });
-    console.log("sent alarm")
-}
-
-let lastFetchedAlarmId = 0;  // Keep track of the last fetched alarm ID
-async function fetchAlarm() {
-    const response = await fetch(`/api/fetchAlarm?last_id=${lastFetchedAlarmId}`);
-    if (response.ok) {
-        const data = await response.json();
-        if (data.new_alarms && data.new_alarms.length > 0) {
-            data.new_alarms.forEach(alarm => {
-                if (parseInt(alarm.peer_id, 10) === parseInt(myID, 10) && alarm.message.type === "key-refresh") {
-                    const receivedKeyNum = alarm.message.keynum;
-                    lastFetchedAlarmId = Math.max(lastFetchedAlarmId, alarm.id);
-                    if (peer_id != -1) {
-                        for(i=keynum;i<receivedKeyNum;i++){ //keep the key the same with other user
-                            console.log('refreshKeys called');
-                            incrementUint8Array(salt);  //salt ++
-                            localStorage.setItem("salt",arrayBufferToHex(salt));
-                            const aesKey=localStorage.getItem(`${info}`);
-                            const macKey=localStorage.getItem(`${macinfo}`);
-                            localStorage.setItem(`${info}_${keynum}`,aesKey);
-                            localStorage.setItem(`${macinfo}_${keynum}`,macKey);
-                            localStorage.setItem('keynum', keynum);
-                            startKeyDerivation();
-                        }
-                        keynum = receivedKeyNum;
-                    }else{
-                        return;
-                    }
-                }
-            });
-        }
-    } 
-}
-
-
-
-
 // Populate users function
 function populateUsers(users) {
     const userListDropdown = document.getElementById("userList");
@@ -688,7 +628,6 @@ function fetchMessages() {
        
         return;
     } // Exit if no peer selected
-    setInterval(fetchAlarm, 1000);
     fetch(`/fetch_messages?last_message_id=${lastMessageId}&peer_id=${peer_id}`)
         .then(response => response.json())
         .then(data => {
@@ -734,9 +673,22 @@ async function decryptMessage(encryptedMessage, aesKey, macKey) {
         ciphertextArrayBuffer,
     );
     const plaintext = new TextDecoder().decode(decryptedData);
-
-    console.log("Plaintext:", plaintext, ",Hmac_Valid=", isHmacValid, ",iv=", iv_hex, ",hmac=", hmac_hex, ",ciphertext=", encryptedMessage.ciphertext, ",associatedData=", encryptedMessage.aad);
-
+    if(encryptedMessage.sender_id != myID)console.log("Plaintext:", plaintext, ",Hmac_Valid=", isHmacValid, ",iv=", iv_hex, ",hmac=", hmac_hex, ",ciphertext=", encryptedMessage.ciphertext, ",associatedData=", encryptedMessage.aad);
+    if(plaintext == "Keys changed" && encryptedMessage.sender_id != myID){
+        incrementUint8Array(salt);  //salt ++
+        localStorage.setItem("salt",arrayBufferToHex(salt));
+        //store current pair of keys into the localstorage?
+        const aesKey=localStorage.getItem(`${info}`);
+        const macKey=localStorage.getItem(`${macinfo}`);
+        localStorage.setItem(`${info}_${keynum}`,aesKey);
+        localStorage.setItem(`${macinfo}_${keynum}`,macKey);
+        localStorage.setItem('keynum',keynum) //latestkeynum
+        console.log(keynum);
+        keynum++;
+        //sendAlarm();
+        // #salt should up up 
+        startKeyDerivation();
+    }
     return plaintext;
 }
 
