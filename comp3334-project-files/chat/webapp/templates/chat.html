@@ -394,7 +394,7 @@ function refreshKeys() {
     localStorage.setItem(`${info}_${keynum}`,aesKey);
     localStorage.setItem(`${macinfo}_${keynum}`,macKey);
     localStorage.setItem('keynum',keynum) //latestkeynum
-    console.log(keynum);
+    //console.log(keynum);
     keynum++;
     startKeyDerivation();
 
@@ -624,21 +624,26 @@ function clearChatBox() {
 // Fetch messages from server
 function fetchMessages() {
     if (peer_id === -1) {
-       
-        return;
-    } // Exit if no peer selected
+        return; // Exit if no peer selected
+    }
     fetch(`/fetch_messages?last_message_id=${lastMessageId}&peer_id=${peer_id}`)
         .then(response => response.json())
         .then(data => {
-            // Sort data.messages by iv in ascending order (change for descending)
-            data.messages.sort((a, b) => a.iv.localeCompare(b.iv));
-            data.messages.forEach(message => {
+            // Sort messages by IV before processing
+            const sortedMessages = data.messages.sort((a, b) => {
+                const ivA = atob(a.iv); // Decode from Base64 to binary string for comparison
+                const ivB = atob(b.iv);
+                return ivA.localeCompare(ivB); // Compare the decoded binary strings
+            });
+
+            sortedMessages.forEach(message => {
                 displayMessage(message);
                 lastMessageId = message.message_id;
             });
         })
         .catch(error => console.error('Error fetching messages:', error));
 }
+
 
 async function decryptMessage(encryptedMessage, aesKey, macKey) {
     // Convert IV, HMAC, and ciphertext from Base64 to ArrayBuffer
