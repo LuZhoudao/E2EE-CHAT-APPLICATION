@@ -765,7 +765,7 @@ async function tryDecryptWithHistoricalKeys(encryptedMessage) {
             decryptionSuccessful = true;
             return plaintext;
         } catch (error) {
-            console.error(`Decryption attempt with keys: ${aesKeyName}, ${macKeyName} failed.`, error);
+            //console.error(`Decryption attempt with keys: ${aesKeyName}, ${macKeyName} failed.`, error);
             // Continue trying with the next key pair
         }
     }
@@ -789,7 +789,7 @@ async function displayMessage(message) {
         try {
             plaintext = await tryDecryptWithHistoricalKeys(message);
         } catch (error) {
-            console.error("Decryption error:", error);
+            //console.error("Decryption error:", error);
             plaintext = "⚠️ This message could not be decrypted.";
         }
     } else {
