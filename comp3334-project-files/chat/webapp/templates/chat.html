@@ -631,6 +631,8 @@ function fetchMessages() {
     fetch(`/fetch_messages?last_message_id=${lastMessageId}&peer_id=${peer_id}`)
         .then(response => response.json())
         .then(data => {
+            // Sort data.messages by iv in ascending order (change for descending)
+            data.messages.sort((a, b) => a.iv.localeCompare(b.iv));
             data.messages.forEach(message => {
                 displayMessage(message);
                 lastMessageId = message.message_id;
