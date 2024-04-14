@@ -209,9 +209,8 @@ async function startKeyDerivation() {
     console.log("salt:",arrayBufferToHex(salt))
 
     const { aesKey, macKey } = await deriveKeys(sharedSecret, salt, peer_id);
-    if(!localStorage.getItem(`${info}`) || !localStorage.getItem(`${macinfo}`)){
-        storeKeys(aesKey,macKey,peer_id); 
-    }
+    
+    storeKeys(aesKey,macKey,peer_id); 
 }
 
 
