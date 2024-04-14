@@ -37,7 +37,6 @@ are permitted provided that the original author is acknowledged. See JavaScript 
     </div>
 </div>
 
-<!-- jQuery for simplified JavaScript -->
 <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha384-1H217gwSVyLSIfaLxHbE7dRb3v4mYCKbpQvzx0cegeju1MVsGrX5xXxAvs/HgeFs" crossorigin="anonymous"></script>
 <script type="text/javascript">
 // Global variables
@@ -46,15 +45,13 @@ let peer_id = -1;
 const myID = {{ sender_id }};
 let userInfo = {};
 let userPrivateKey;
-let sharedSecrets = {}; // Object to store shared secrets with each peer
+let sharedSecrets = {}; 
 let ivCounters = {};
 let keynum = 1;
 
 
 async function fetchAndSetupEncryptionWithPeer(peerId) {
     const peerPublicKey = await fetchPeerPublicKey(peerId);
-    // Convert peerPublicKey from fetched format to ArrayBuffer if necessary
-
     const importedPeerPublicKey = await window.crypto.subtle.importKey(
         "spki",
         peerPublicKey, // Ensure this is an ArrayBuffer
@@ -163,7 +160,7 @@ async function deriveKeys(sharedSecretBits, salt, peer_id) {
             info: new TextEncoder().encode(info),
             hash: "SHA-256"
         },
-        sharedSecretKey, // Use the imported shared secret key here
+        sharedSecretKey,
         { name: "AES-GCM", length: 256 },
         true, ["encrypt", "decrypt"]
     );
@@ -176,7 +173,7 @@ async function deriveKeys(sharedSecretBits, salt, peer_id) {
             info: new TextEncoder().encode(macinfo),
             hash: "SHA-256"
         },
-        sharedSecretKey, // And also here
+        sharedSecretKey, 
         { name: "HMAC", hash: "SHA-256" },
         true, ["sign", "verify"]
     );
@@ -189,7 +186,7 @@ async function deriveKeys(sharedSecretBits, salt, peer_id) {
 
 function incrementUint8Array(value) {
     for (let i = value.length - 1; i >= 0; i--) {
-        if (++value[i]) { // Increment the current byte, if the result is not 0, break (no carry over)
+        if (++value[i]) { 
             break;
         }
     }
@@ -199,17 +196,13 @@ if(!localStorage.getItem("salt")){
         localStorage.setItem("salt",arrayBufferToHex(salt));
     }
     else{
-        
-        salt = localStorage.getItem("salt")
+        salt = hexToArrayBuffer(localStorage.getItem("salt"));
     }
 
 async function startKeyDerivation() {
     const sharedSecret = await deriveSharedSecret(); 
-    //const salt =new Uint8Array(16); // Generate a unique salt 
     console.log("salt:",arrayBufferToHex(salt))
-
     const { aesKey, macKey } = await deriveKeys(sharedSecret, salt, peer_id);
-
     storeKeys(aesKey,macKey,peer_id); 
 }
 
@@ -226,7 +219,6 @@ async function generateIV() {
 
     } catch (error) {
         console.error("Error decoding IV from Base64:", error);
-        // If decoding fails, initialize a new IV of 12 zero bytes
         ivBytes = new Uint8Array(12);
     }
     
@@ -236,16 +228,11 @@ async function generateIV() {
             ivBytes[i]++;
             break;
         } else if (i > 0) {
-            // Reset current byte to 0 and continue loop to increment next byte
             ivBytes[i] = 0;
         } else {
-            // Handle overflow by wrapping around
             ivBytes[i] = 0;
         }
     }
-
-    // Re-encode IV to Base64
-    //const incrementedIVBase64 = btoa(String.fromCharCode.apply(null, ivBytes));
     const incrementedIVBase64 = arrayBufferToBase64(ivBytes)
     return incrementedIVBase64;
 }
@@ -346,10 +333,9 @@ async function sendMessage() {
     })
     .then(response => {
         if (!response.ok) {
-            // If the server response is not OK, throw an error
             throw new Error('Network response was not ok');
         }
-        return response.json(); // Parse JSON response from the server
+        return response.json(); 
     })
     .then(data => {
         console.log('Message sent:', data); // Log success message
@@ -360,7 +346,7 @@ async function sendMessage() {
     });
 }
 
-// Helper function to convert Base64 to ArrayBuffer
+//convert Base64 to ArrayBuffer
 function base64ToArrayBuffer(base64) {
     const binaryString = window.atob(base64);
     const len = binaryString.length;
@@ -371,7 +357,7 @@ function base64ToArrayBuffer(base64) {
     return bytes.buffer;
 }
 
-// Helper function to convert ArrayBuffer to Base64
+// convert ArrayBuffer to Base64
 function arrayBufferToBase64(buffer) {
     let binary = '';
     const bytes = new Uint8Array(buffer);
@@ -383,23 +369,18 @@ function arrayBufferToBase64(buffer) {
 }
 
 
-// Refresh Keys function placeholder
+// Refresh Keys function
 function refreshKeys() {
-    //console.log('refreshKeys called');
     incrementUint8Array(salt);  //salt ++
     localStorage.setItem("salt",arrayBufferToHex(salt));
-    //store current pair of keys into the localstorage?
     const aesKey=localStorage.getItem(`${info}`);
     const macKey=localStorage.getItem(`${macinfo}`);
     localStorage.setItem(`${info}_${keynum}`,aesKey);
     localStorage.setItem(`${macinfo}_${keynum}`,macKey);
-    localStorage.setItem('keynum',keynum) //latestkeynum
-    //console.log(keynum);
+    localStorage.setItem('keynum',keynum) 
     keynum++;
     startKeyDerivation();
-
     sendspecialMessage();
-    // #salt should up up 
 
 }
 
@@ -542,7 +523,6 @@ async function deriveSharedSecret() {
         false, 
         ["deriveKey", "deriveBits"] 
     );
-    //console.log("Imported Private Key:", privateKey);//test
     // Import the peer's public key
     const peerPublicKey = await window.crypto.subtle.importKey(
         "spki",
@@ -554,7 +534,6 @@ async function deriveSharedSecret() {
         false, 
         [] 
     );
-    //console.log("Imported Peer Public Key:", peerPublicKey);//test
 
     // Derive the shared secret
     const sharedSecret = await window.crypto.subtle.deriveKey(
@@ -614,8 +593,6 @@ function hexToArrayBuffer(hex) {
     return buffer;
 }
 
-
-
 // Clear chat box
 function clearChatBox() {
     document.getElementById('messages').innerHTML = '';
@@ -643,8 +620,6 @@ function fetchMessages() {
         })
         .catch(error => console.error('Error fetching messages:', error));
 }
-
-
 async function decryptMessage(encryptedMessage, aesKey, macKey) {
     // Convert IV, HMAC, and ciphertext from Base64 to ArrayBuffer
     
@@ -689,42 +664,34 @@ async function decryptMessage(encryptedMessage, aesKey, macKey) {
         localStorage.setItem(`${info}_${keynum}`,aesKey);
         localStorage.setItem(`${macinfo}_${keynum}`,macKey);
         localStorage.setItem('keynum',keynum) //latestkeynum
-        //console.log(keynum);
         keynum++;
-        //sendAlarm();
-        // #salt should up up 
         startKeyDerivation();
     }
     return plaintext;
 }
-
+//enumerate history key stored in localstorage
 async function tryDecryptWithHistoricalKeys(encryptedMessage) {
     let decryptionSuccessful = false;
     end = localStorage.getItem('keynum') || 0;
     for (let i = 0; i <= end; i++) {
         const aesKeyName = i === 0 ? info : `${info}_${i}`;
-        const macKeyName = i === 0 ? macinfo : `${macinfo}_${i}`;
-        //console.log(`attempted: ${aesKeyName}, ${macKeyName}`);
-        
+        const macKeyName = i === 0 ? macinfo : `${macinfo}_${i}`;        
         const aesKeyJwk = JSON.parse(localStorage.getItem(aesKeyName));
         const macKeyJwk = JSON.parse(localStorage.getItem(macKeyName));
         
         if (!aesKeyJwk || !macKeyJwk) {
             console.log(`Key pair not found for index ${i}. Skipping.`);
             continue;
-        }// Skip if key pair not found
+        }
 
         const aesKey = await window.crypto.subtle.importKey("jwk", aesKeyJwk, { name: "AES-GCM" }, true, ["decrypt"]);
         const macKey = await window.crypto.subtle.importKey("jwk", macKeyJwk, { name: "HMAC", hash: { name: "SHA-256" } }, true, ["verify"]);
 
         try {
             const plaintext = await decryptMessage(encryptedMessage, aesKey, macKey);
-            //console.log(`Decryption successful with keys: ${aesKeyName}, ${macKeyName}`);
             decryptionSuccessful = true;
             return plaintext;
         } catch (error) {
-            //console.error(`Decryption attempt with keys: ${aesKeyName}, ${macKeyName} failed.`, error);
-            // Continue trying with the next key pair
         }
     }
 
@@ -733,9 +700,6 @@ async function tryDecryptWithHistoricalKeys(encryptedMessage) {
         throw new Error("Decryption failed with all available keys.");
     }
 }
-
-
-
 
 // Main function to display the message
 async function displayMessage(message) {
@@ -747,7 +711,6 @@ async function displayMessage(message) {
         try {
             plaintext = await tryDecryptWithHistoricalKeys(message);
         } catch (error) {
-            //console.error("Decryption error:", error);
             plaintext = "⚠️ This message could not be decrypted.";
         }
     } else {
@@ -813,9 +776,7 @@ document.addEventListener('DOMContentLoaded', function() { //clear cache when lo
     }
 });
 
-
-
-function setupInactivityTimer() {
+function setupInactivityTimer() {  //set timer for checking session expired (20 minuts no click)
     let inactivityTimer;
     function sendInactivityNotice() {
         fetch('/api/sessionReset')
@@ -833,7 +794,6 @@ function setupInactivityTimer() {
     function resetInactivityTimer() {
         clearTimeout(inactivityTimer);
         inactivityTimer = setTimeout(sendInactivityNotice, 20 * 60 * 1000);  // 20 minutes
-        //console.log('Mouse click detected, inactivity timer reset.');
     }
     // Set up the event listener for mouse clicks
     document.addEventListener('click', resetInactivityTimer);
