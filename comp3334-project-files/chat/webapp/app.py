@@ -502,7 +502,7 @@ def forgot_password():
         security_answer = form['securityAnswer']
         memorized_secret = form['memorizedSecret']
         recaptcha_response = form['g-recaptcha-response']
-        # 向 reCAPTCHA 服务器发送验证请求
+        #recaptcha send request
         data = {
             'secret': '6LeMXbQpAAAAAP0CTcYJcAk16IhutPwNVF5dnOs-',
             'response': recaptcha_response
@@ -564,7 +564,7 @@ def verify_totp():
             session['user_id'] = user_id_temp  # Now officially logged in
             del session['user_id_temp']  # Clean up
             del session['username_password_verified']
-            return redirect(url_for('index'))  # or wherever you want to redirect after login
+            return redirect(url_for('index'))  
         else:
 
             pass
@@ -584,17 +584,6 @@ def captcha():
         'Content-Length': str(len(buf.getvalue()))
     }
 
-
-# @app.route('/verify-captcha', methods=['POST'])
-# def verify_captcha():
-#     data = request.json
-#     if 'captcha' in session and data.get('captcha') == session['captcha']:
-#         return jsonify(success=True), 200
-#     else:
-#         return jsonify(success=False, message="Incorrect CAPTCHA"), 400
-
-
-#get request when no mouse click on js for 20 minites
 
 @app.route('/api/sessionReset', methods=['GET'])
 def handle_inactivity_notice():
