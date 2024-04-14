@@ -26,7 +26,7 @@ app.config['SESSION_FILE_DIR'] = './sessions'  # Needed if using filesystem type
 app.config['SESSION_COOKIE_SECURE'] = True  # Enable for production on HTTPS
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Strict'  # Mitigate CSRF attacks
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=120)
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=10 )
 
 # Load database configuration from db.yaml or configure directly here
 db_config = yaml.load(open('db.yaml'), Loader=yaml.FullLoader)
@@ -355,7 +355,15 @@ def register():
                 (username, hashed_password, encrypted_question, encrypted_answer, public_key, iv, totp_secret,
                  encrypted_secret))
             mysql.connection.commit()
+
+            session['username_password_verified'] = True
+
+            cur.execute(
+                "SELECT user_id  FROM users WHERE username = %s",
+                [username])
+            account = cur.fetchone()
             cur.close()
+            session['user_id_temp'] = account[0]
 
             flash('You are now registered.', 'success')
             session['username'] = username
@@ -625,11 +633,17 @@ def captcha():
 @app.route('/api/sessionReset', methods=['GET'])
 def handle_inactivity_notice():
     if 'user_id' in session:
-        print('Received inactivity notice for user:', session['user_id'])
-        return jsonify({'message': 'Inactivity registered'}), 200
+        # print('Received inactivity notice for user:', session['user_id'])
+        # return jsonify({'message': 'Inactivity registered'}), 200
+        redirect((url_for("/session_time_out")))
     else:
         return jsonify({'error': 'Session not active'}), 401
 
+@app.route('/session_time_out')
+def session_time_out():
+    session.clear()
+    flash('Your session has expired. ', 'danger')  # Flash a logout success message
+    return redirect(url_for('index'))
 
 bcrypt = Bcrypt(app)
 if __name__ == '__main__':
