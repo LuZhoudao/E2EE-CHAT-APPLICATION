@@ -194,7 +194,6 @@ function incrementUint8Array(value) {
         }
     }
 }
-let salt;
 if(!localStorage.getItem("salt")){
         salt = new Uint8Array(16);
         localStorage.setItem("salt",arrayBufferToHex(salt));
