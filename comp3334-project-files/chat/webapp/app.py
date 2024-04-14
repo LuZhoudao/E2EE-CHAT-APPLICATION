@@ -4,7 +4,7 @@ from flask_session import Session
 import yaml
 from flask_bcrypt import Bcrypt
 from Crypto.Cipher import AES
-from helpers import AESencrypt, AESdecrypt, get_totp_uri, verify_totp, check_password_strength, generate_captcha_image
+from helpers import AESencrypt, AESdecrypt, get_totp_uri, verify_totp, check_password_strength, generate_captcha_image, validate_form
 from base64 import b64encode, b64decode
 import os
 import base64
@@ -71,11 +71,14 @@ def users():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
+
+        form = validate_form(request.form)
+
+        username = form['username']
         username = username[:MAX_USERNAME_LEN] if len(username) > MAX_USERNAME_LEN else username
-        password = request.form['password']
-        text_captcha = request.form['captcha_input']
-        recaptcha_response = request.form['g-recaptcha-response']
+        password = form['password']
+        text_captcha = form['captcha_input']
+        recaptcha_response = form['g-recaptcha-response']
 
         cur = mysql.connection.cursor()
         cur.execute("SELECT user_id, password FROM users WHERE username = %s", [username])
@@ -273,23 +276,25 @@ def register():
         # Display the registration form
         return render_template('register.html')
     else:
-        # print(request.form)
         # Process the form data and register the user
-        username = request.form['username']
+
+        form = validate_form(request.form)
+
+        username = form['username']
         username = username[:MAX_USERNAME_LEN] if len(username) > MAX_USERNAME_LEN else username
-        password = request.form['password']
-        public_key = request.form['public_key']
-        security_question = request.form['securityQuestion']
-        retyped_password = request.form["retyped_password"]
-        security_answer = request.form['securityAnswer']
-        memorized_secret = request.form['memorizedSecret']
+        password = form['password']
+        public_key = form['public_key']
+        security_question = form['securityQuestion']
+        retyped_password = form["retyped_password"]
+        security_answer = form['securityAnswer']
+        memorized_secret = form['memorizedSecret']
         ### memorizedSecret ???
 
         if password != retyped_password:
             flash("Different passwords, please input again", 'danger')
             return render_template('register.html')
 
-        recaptcha_response = request.form['g-recaptcha-response']
+        recaptcha_response = form['g-recaptcha-response']
         # 向 reCAPTCHA 服务器发送验证请求
         data = {
             'secret': '6LeMXbQpAAAAAP0CTcYJcAk16IhutPwNVF5dnOs-',
@@ -452,7 +457,9 @@ def qr_code():
 def reset_password():
     if request.method == "POST":
 
-        new_password = request.form['password']
+        form = validate_form(request.form)
+
+        new_password = form['password']
 
         # password strengh check
         error_message = check_password_strength(new_password)
@@ -483,13 +490,16 @@ def reset_password():
 def forgot_password():
     ## implement here
     if request.method == "POST":
+
+        form = validate_form(request.form)
+
         # get the input message.
-        username = request.form['username']
+        username = form['username']
         username = username[:MAX_USERNAME_LEN] if len(username) > MAX_USERNAME_LEN else username
-        security_question = request.form['securityQuestion']
-        security_answer = request.form['securityAnswer']
-        memorized_secret = request.form['memorizedSecret']
-        recaptcha_response = request.form['g-recaptcha-response']
+        security_question = form['securityQuestion']
+        security_answer = form['securityAnswer']
+        memorized_secret = form['memorizedSecret']
+        recaptcha_response = form['g-recaptcha-response']
         # 向 reCAPTCHA 服务器发送验证请求
         data = {
             'secret': '6LeMXbQpAAAAAP0CTcYJcAk16IhutPwNVF5dnOs-',
@@ -539,6 +549,7 @@ def verify_totp():
         return redirect(url_for('login'))  # Redirect back if the initial check wasn't passed
 
     if request.method == 'POST':
+
         user_totp_token = request.form['token']
         user_id_temp = session.get('user_id_temp')
 

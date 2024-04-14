@@ -10,6 +10,34 @@
     <link href="{{ url_for('static', filename='styles.css') }}" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <script>
+        function validateForm() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const captcha_input = document.getElementById('captcha_input').value;
+
+            // Basic validation
+            if (!username || !password) {
+                alert("Username and password are required.");
+                return false;
+            }
+
+            // Username validation 
+            if (username.length < 3) {
+                alert("Username must be more than 3 characters long.");
+                return false;
+            }
+
+
+            // Check reCAPTCHA validation
+            if (!grecaptcha.getResponse()) {
+                alert("Please complete the reCAPTCHA challenge.");
+                return false;
+            }
+
+            return true; // Form is valid, submit it
+        }
+      </script>
     <style>
         .reload-captcha-btn {
             margin-top: 5px;

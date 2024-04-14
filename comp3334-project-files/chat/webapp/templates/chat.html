@@ -294,7 +294,15 @@ async function sendMessage() {
     const aesKey = await window.crypto.subtle.importKey("jwk", aesKeyJwk, { name: "AES-GCM" }, false, ["encrypt"]);
     const macKey = await window.crypto.subtle.importKey("jwk", macKeyJwk, { name: "HMAC", hash: { name: "SHA-256" } }, false, ["sign"]);
 
-    const message = document.getElementById('messageInput').value;
+    const inputMessage = document.getElementById('messageInput').value;
+
+    // Escape message
+    const escapeHtml = (unsafe) => {
+        return unsafe.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+    }
+
+    const message = escapeHtml(inputMessage);
+
     if (!message) {
         console.error("No message to send.");
         return;

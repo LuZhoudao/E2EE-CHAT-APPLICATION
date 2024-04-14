@@ -11,6 +11,8 @@ import re
 from PIL import Image, ImageDraw, ImageFont
 import random
 import string
+import logging
+import html
 
 def generate_captcha_image():
     # 定义图片大小及背景颜色
@@ -88,4 +90,37 @@ def check_password_strength(password):
 
     return None
 
+def validate_form(form):
 
+    validated_data = {}
+    for field, value in form.items():
+        
+        escaped_value = html.escape(value) # Escape all fields for XSS protection
+
+        if field == "username" or field == "captcha_input":
+            escaped_value = escaped_value.strip()
+            if not re.match(r"^[a-zA-Z0-9]+$", escaped_value):
+                logging.warning(f"Invalid username format for '{value}'. Username should only contain alphanumeric characters.")
+                escaped_value = 'None'
+
+            validated_data[field] = escaped_value
+
+        elif field == "password" or field == "retyped_password" or field == "memorizedSecret":
+            escaped_value = escaped_value.strip()
+            # Allow alphanumeric, common symbols, and underscores
+            if not re.match(r"^[a-zA-Z0-9!@#$%^&*()-_=+{}|:'\",./?]+$", escaped_value):
+                logging.warning(f"Invalid password format for '{value}'. Passwords can contain alphanumeric characters, common symbols, and underscores.")
+                escaped_value = 'None'
+            validated_data[field] = escaped_value
+
+        elif field == "securityAnswer":
+    
+            if not re.match(r"^[a-zA-Z0-9]+$", escaped_value):
+                logging.warning(f"Invalid security answer format for '{value}'. Security answer should only contain alphanumeric characters.")
+                escaped_value = 'None'
+
+            validated_data[field] = escaped_value
+
+        else:
+            validated_data[field] = escaped_value
+    return validated_data
