@@ -26,7 +26,7 @@ app.config['SESSION_FILE_DIR'] = './sessions'  # Needed if using filesystem type
 app.config['SESSION_COOKIE_SECURE'] = True  # Enable for production on HTTPS
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Strict'  # Mitigate CSRF attacks
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=10 )
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=120 )
 
 # Load database configuration from db.yaml or configure directly here
 db_config = yaml.load(open('db.yaml'), Loader=yaml.FullLoader)
