@@ -209,7 +209,7 @@ async function startKeyDerivation() {
     console.log("salt:",arrayBufferToHex(salt))
 
     const { aesKey, macKey } = await deriveKeys(sharedSecret, salt, peer_id);
-    
+
     storeKeys(aesKey,macKey,peer_id); 
 }
 
@@ -260,7 +260,6 @@ async function storeKeys(aesKey, macKey, peer_id) {
     // Serialize and store in Local Storage
     localStorage.setItem(`${info}`, JSON.stringify(aesKeyExported));
     localStorage.setItem(`${macinfo}`, JSON.stringify(macKeyExported));
-
     // Store peer_id
     localStorage.setItem('peer_id', peer_id);
 }
@@ -331,7 +330,7 @@ async function sendMessage() {
     iv_hex = arrayBufferToHex(iv)
     hmac_hex = arrayBufferToHex(hmacSignature)
 
-    console.log("Message:",message,",iv=",iv_hex,",hmac=",hmac_hex,",ciphertext=",encryptedDataB64,",associatedData=",associatedData);
+    console.log("[+] Message:",message,",iv=",iv_hex,",hmac=",hmac_hex,",ciphertext=",encryptedDataB64,",associatedData=",associatedData);
 
     // Send the iv,encrypted message and HMAC signature to the server
     const response = await fetch('/api/send_message', {
@@ -397,11 +396,11 @@ function refreshKeys() {
     localStorage.setItem('keynum',keynum) //latestkeynum
     console.log(keynum);
     keynum++;
-    //sendAlarm();
+    startKeyDerivation();
 
     sendspecialMessage();
     // #salt should up up 
-    startKeyDerivation();
+
 }
 
 async function sendspecialMessage(){
@@ -663,7 +662,7 @@ async function decryptMessage(encryptedMessage, aesKey, macKey) {
     }
     const encoder = new TextEncoder();
     const AAD = encoder.encode(encryptedMessage.aad);
-    console.log("AAD:",encryptedMessage.aad);
+    //console.log("AAD:",encryptedMessage.aad);
     // Decrypt the message
     const decryptedData = await window.crypto.subtle.decrypt(
         {
@@ -675,7 +674,7 @@ async function decryptMessage(encryptedMessage, aesKey, macKey) {
         ciphertextArrayBuffer,
     );
     const plaintext = new TextDecoder().decode(decryptedData);
-    if(encryptedMessage.sender_id != myID)console.log("Plaintext:", plaintext, ",Hmac_Valid=", isHmacValid, ",iv=", iv_hex, ",hmac=", hmac_hex, ",ciphertext=", encryptedMessage.ciphertext, ",associatedData=", encryptedMessage.aad);
+    if(encryptedMessage.sender_id != myID)console.log("[+] Plaintext:", plaintext, ",Hmac_Valid=", isHmacValid, ",iv=", iv_hex, ",hmac=", hmac_hex, ",ciphertext=", encryptedMessage.ciphertext, ",associatedData=", encryptedMessage.aad);
     if(plaintext == "Keys changed" && encryptedMessage.sender_id != myID){
         incrementUint8Array(salt);  //salt ++
         localStorage.setItem("salt",arrayBufferToHex(salt));
@@ -685,7 +684,7 @@ async function decryptMessage(encryptedMessage, aesKey, macKey) {
         localStorage.setItem(`${info}_${keynum}`,aesKey);
         localStorage.setItem(`${macinfo}_${keynum}`,macKey);
         localStorage.setItem('keynum',keynum) //latestkeynum
-        console.log(keynum);
+        //console.log(keynum);
         keynum++;
         //sendAlarm();
         // #salt should up up 
@@ -700,7 +699,7 @@ async function tryDecryptWithHistoricalKeys(encryptedMessage) {
     for (let i = 0; i <= end; i++) {
         const aesKeyName = i === 0 ? info : `${info}_${i}`;
         const macKeyName = i === 0 ? macinfo : `${macinfo}_${i}`;
-        console.log(`attempted: ${aesKeyName}, ${macKeyName}`);
+        //console.log(`attempted: ${aesKeyName}, ${macKeyName}`);
         
         const aesKeyJwk = JSON.parse(localStorage.getItem(aesKeyName));
         const macKeyJwk = JSON.parse(localStorage.getItem(macKeyName));
@@ -715,7 +714,7 @@ async function tryDecryptWithHistoricalKeys(encryptedMessage) {
 
         try {
             const plaintext = await decryptMessage(encryptedMessage, aesKey, macKey);
-            console.log(`Decryption successful with keys: ${aesKeyName}, ${macKeyName}`);
+            //console.log(`Decryption successful with keys: ${aesKeyName}, ${macKeyName}`);
             decryptionSuccessful = true;
             return plaintext;
         } catch (error) {
@@ -765,7 +764,7 @@ function appendMessageToChat(sender, receiver, plaintext, isWarning = false) {
 
 
 // Periodically fetch new messages every second
-setInterval(fetchMessages, 1000);
+setInterval(fetchMessages, 100);
 
 // Erase Chat function using fetch API
 function eraseChat() {
